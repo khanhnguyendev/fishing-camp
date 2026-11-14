@@ -14,6 +14,7 @@ Out of scope is fine: no ads or in-app purchases in this build.
 After play: there are 2 grills but only one cooker, is it bug?
 After play: yes please (both pots cooking in parallel, and a pot-boy at the second pot)
 After play: and look like our initial yard too big so the user need to run a lot
+After play: fishing area stuck and not center
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
