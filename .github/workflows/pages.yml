@@ -1,0 +1,42 @@
+# Builds the player copy of Fishing Camp (prototypes/fishing-camp/dist, made by the
+# studio's share script: no tweak panel, no brief or evidence) and deploys it to GitHub Pages.
+name: Deploy game to Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'prototypes/fishing-camp/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the player copy
+        run: bash .claude/scripts/one-shot-share.sh prototypes/fishing-camp
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: prototypes/fishing-camp/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
