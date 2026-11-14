@@ -17,6 +17,7 @@ After play: and look like our initial yard too big so the user need to run a lot
 After play: fishing area stuck and not center
 After play: look like this game not have UI/UX for mobile? or require users to landscape to play in fullscreen?
 After play: Portrait-first (fill any screen; portrait is the main way to play, landscape still works)
+After play: not work on mobile, and look like icon/box buy fisher overlapse a little bit
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 

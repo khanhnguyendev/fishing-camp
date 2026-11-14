@@ -393,17 +393,18 @@ function splash(pos) {
 const Z1 = { x0: -4.7, x1: 6.6, z0: -8.8, z1: 7.6 }, Z1N = { x0: -5.6, x1: 6.6, z0: -8.8, z1: 0.1 }, Z1S = { x0: -5.6, x1: 6.6, z0: 4.9, z1: 7.6 }, Z2 = { x0: 7.4, x1: 20.3, z0: -8.8, z1: 7.6 }, GATE = { x0: 6.0, x1: 8.0, z0: -1.6, z1: 1.6 };
 const inRect = (r, x, z) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
 function walkable(x, z) { return inRect(Z1, x, z) || inRect(Z1N, x, z) || inRect(Z1S, x, z) || (state.gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z))); }
-const inTile = (p, t, h = 0.85) => Math.abs(p.x - t.x) < h && Math.abs(p.z - t.z) < h;
+// tiles are drawn as squares facing the camera (turned 45 degrees on the ground); stand-checks use the same square
+const inTile = (p, t, h = 0.85) => { const dx = p.x - t.x, dz = p.z - t.z; return Math.abs(dx - dz) * Math.SQRT1_2 < h && Math.abs(dx + dz) * Math.SQRT1_2 < h; };
 const UNLOCKS = [
-  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -1.3, z: -8, req: [], focus: [-3.1, -8] },
-  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 2.3, z: -8, req: ['fisher1'], focus: [0.5, -8] },
+  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -1.3, z: -5.9, req: [], focus: [-3.1, -8] },
+  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 2.3, z: -5.9, req: ['fisher1'], focus: [0.5, -8] },
   { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 5.6, z: 4.6, req: ['fisher1'] },
-  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 5.9, z: -8, req: ['fisher2'], focus: [4.1, -8] },
+  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 5.9, z: -5.9, req: ['fisher2'], focus: [4.1, -8] },
   { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -0.6, z: 4.6, req: ['fisher3'], focus: [-0.6, 2.6] },
-  { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 5.6, z: 6.6, req: ['fisher3'] },
+  { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 3.4, z: 6.6, req: ['fisher3'] },
   { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 5.6, z: 0.4, req: ['conveyor'], focus: [14.2, -1.5] },
   { id: 'pot2', kind: 'upgrade', label: 'SECOND POT', price: 'price_pot2', x: 5.8, z: -4.4, req: ['conveyor'], focus: [4.3, -2] },
-  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 13.0, z: -8, req: ['gate'], focus: [11.2, -8] },
+  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 13.0, z: -5.9, req: ['gate'], focus: [11.2, -8] },
 ];
 
 // ---- Tiles drawn on the ground ----------------------------------------------------------------
@@ -1152,7 +1153,7 @@ const scenes = {
       for (const s of fx.streaks) { s.m.position.x += s.v * dt; if (s.m.position.x > 60) s.m.position.x = -40; }
       placeCamera();
       if (pressed('Enter') || pressed('Space') || tapped) {
-        if (tapped && TOUCH) { try { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); } catch (_) {} } // Android: play fullscreen
+        if (tapped && TOUCH) { try { const el = document.documentElement; const p = (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); if (p && p.catch) p.catch(() => {}); } catch (_) {} } // Android: play fullscreen; a refusal is fine
         scene = 'play'; tapped = null; }
     },
     draw() {
