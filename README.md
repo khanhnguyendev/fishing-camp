@@ -9,8 +9,8 @@ An arcade idle game in the browser. You only move; every action happens when you
 
 ![The camp: soldiers queue at the counter, the chef cuts fish, fishers work the rods by the river](prototypes/fishing-camp/evidence/iteration-2-play.png)
 
-> **Status:** an early prototype (a playable slice). Numbers come from the design document and are
-> still being tuned.
+> **Status:** early development: a playable slice (zones 1 and 2), grown from a prototype into a
+> TypeScript web project. Numbers come from the design document and are still being tuned.
 
 ## How to play
 
@@ -47,33 +47,50 @@ sell for 5×. Progress saves after every unlock, and the camp earns while you ar
 
 ## Run it locally
 
-No build step and no server: open `prototypes/fishing-camp/index.html` in a browser.
-three.js is bundled in `prototypes/fishing-camp/vendor/`, so it also plays offline.
+Needs Node.js 22.12 or later.
 
-Add `?fresh=1` to the address to start without the saved camp.
+```bash
+npm ci          # install the exact tool versions from package-lock.json
+npm run dev     # play it at the address it prints, with live reload
+```
+
+Add `?fresh=1` to the address to start without the saved camp. On the dev server, press
+`` ` `` (backquote) or add `?tune` for a panel of live sliders over every tuning value.
+
+| Command | Does |
+|---|---|
+| `npm run dev` | Dev server with live reload and the tuning panel |
+| `npm run build` | Type-checks and builds the shippable game into `dist/` |
+| `npm test` | Unit tests (Vitest), then browser tests (Playwright) on the built game |
+| `npm run smoke` | Just the boot test: the game opens to its title with no errors |
 
 ## Tuning
 
 Every gameplay number (catch and cook times, prices, carry sizes, speeds, golden school timing,
-camera) lives in [`prototypes/fishing-camp/config.js`](prototypes/fishing-camp/config.js), each
-with a min, max and step. Change a value and reload.
+camera) lives in [`data/config.json`](data/config.json), each with a min, max and step; what each
+one means is in [`data/config-notes.md`](data/config-notes.md). Change a value and the dev server
+reloads.
 
 ## What's in this repository
 
 | Path | What it is |
 |---|---|
 | [`design/GDD.md`](design/GDD.md) | The full design: loop, systems, economy, zones, feedback, art |
-| [`design/game-brief.md`](design/game-brief.md) | The one-page brief this build follows, with what is in and out of scope |
-| [`prototypes/fishing-camp/`](prototypes/fishing-camp/) | The game: `index.html`, `config.js`, bundled three.js |
-| `prototypes/fishing-camp/evidence/` | Screenshots and check results from each build and change |
-| [`.github/workflows/pages.yml`](.github/workflows/pages.yml) | Deploys the game to GitHub Pages on every push to `main` |
+| [`design/game-brief.md`](design/game-brief.md) | The one-page brief the game follows, with what is in and out of scope |
+| [`src/`](src/) | The game in TypeScript: `game/` holds the rules (no browser code), `main.ts` the scenes, camp and loop, plus `screen.ts`, `audio.ts`, `config.ts` |
+| [`data/`](data/) | Tuning values and their notes |
+| [`tests/`](tests/) | `unit/` rules under Vitest, `integration/` boot and same-seed replay under Playwright |
+| [`public/`](public/) | The home-screen manifest and icon |
+| [`prototypes/fishing-camp/`](prototypes/fishing-camp/) | The original one-file prototype the game grew from, kept as it was, with its build evidence |
+| [`.github/workflows/pages.yml`](.github/workflows/pages.yml) | Tests, builds and deploys the game to GitHub Pages |
 | `.claude/`, `docs/`, `studio-tests/`, `CLAUDE.md` | The Claude Code Game Studios workflow the game is built with |
 
 ## Deploying
 
-Pushing to `main` with a change under `prototypes/fishing-camp/` runs the Pages workflow. It
-builds the player copy (no tuning panel, brief or evidence files) and publishes it to
-<https://khanhnguyendev.github.io/fishing-camp/>.
+Pushing to `main` with a change to the game (`src/`, `data/`, `public/`, `index.html`, the
+package or build config) runs the Pages workflow: it installs, runs the unit tests, builds
+`dist/` and publishes it to <https://khanhnguyendev.github.io/fishing-camp/>. A failing test stops
+the deploy.
 
 ## What's next
 
