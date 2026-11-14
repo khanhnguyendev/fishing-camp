@@ -21,6 +21,8 @@ After play: not work on mobile, and look like icon/box buy fisher overlapse a li
 After play: the fisher on the way we go, so users can easily make mistake spend unwanted money
 After play: we should smaller fisher price title or place it another place, currently it so far the fisher position so easily misunderstanding
 After play: why i press start on my PC it stuck
+After play: there is a bug when money is increasing, users cant take money
+After play: second grill is overlapsed with the door of second yard
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
