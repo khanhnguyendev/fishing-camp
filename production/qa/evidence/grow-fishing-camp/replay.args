@@ -1,0 +1,2 @@
+stop	3600
+log	Enter ArrowUp:0.65 ArrowRight:0.34 wait:2.4 ArrowDown:1.06 ArrowLeft:0.18 wait:2.5 ArrowDown:1.17 ArrowLeft:0.23 wait:1 ArrowUp:0.86 ArrowLeft:1.18 wait:2.5 ArrowDown:0.61 ArrowLeft:0.52 wait:2 ArrowUp:1.2 ArrowRight:0.6 wait:3
