@@ -13,6 +13,7 @@ window.CONFIG = {
   cook_time:       { value: 1.5, min: 0.2, max: 6, step: 0.1 },   // seconds for the chef to turn 1 fish into soup
   bowls_per_fish:  { value: 4, min: 1, max: 10, step: 1 },        // bowls from 1 fish
   bowl_price:      { value: 5, min: 1, max: 50, step: 1 },        // coins per soup bowl
+  cut_time:        { value: 0.35, min: 0.05, max: 2, step: 0.05 },  // seconds the chef cuts a fish on the board (part of cook/grill time)
   grill_time:      { value: 2.0, min: 0.2, max: 6, step: 0.1 },   // seconds for the grill chef to turn 1 fish into sushi
   plates_per_fish: { value: 3, min: 1, max: 10, step: 1 },        // sushi plates from 1 fish
   plate_price:     { value: 15, min: 1, max: 100, step: 1 },      // coins per sushi plate (3x soup, GDD 5)

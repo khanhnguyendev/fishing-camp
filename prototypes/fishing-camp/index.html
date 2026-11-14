@@ -207,6 +207,7 @@ const ROLES = {
   fisher:    { tunic: '#58a84b', pants: '#4a3b2c', hair: '#3a2618', belt: '#8a5a2b' },
   chef:      { tunic: '#f4f2ea', pants: '#6b6b78', hair: '#3a2618', belt: '#d84b3a' },
   grillchef: { tunic: '#b5402e', pants: '#3a2c28', hair: '#20150f', belt: '#f2c94c' },
+  potboy:    { tunic: '#e0a33a', pants: '#5a4636', hair: '#2b1d16', belt: '#7a4a26' },
 };
 const TORSO = new THREE.CylinderGeometry(0.25, 0.33, 0.52, 8);
 const HEAD = new THREE.SphereGeometry(0.4, 10, 8);
@@ -239,6 +240,11 @@ function makeChar(role) {
   } else if (role === 'grillchef') {
     add(head, new THREE.CylinderGeometry(0.15, 0.24, 0.62, 8), '#1d1a1f', 0, 0.55, -0.08, -0.25, 0, 0);
     add(body, new THREE.TorusGeometry(0.27, 0.06, 5, 12), '#f5f1e6', 0, 0.94, 0, PI / 2, 0, 0);
+  } else if (role === 'potboy') { // headscarf with a knot, and a long ladle in the right hand
+    add(head, new THREE.SphereGeometry(0.45, 10, 6, 0, 2 * PI, 0, PI * 0.45), '#3d7fc4', 0, 0.04, -0.02, -0.3, 0, 0);
+    add(head, G.sph, '#3d7fc4', 0, 0.12, -0.46, 0, 0, 0, 0.22); add(head, G.box, '#3d7fc4', 0.1, -0.08, -0.5, 0.3, 0, -0.6, 0.08, 0.28, 0.05);
+    add(armR, G.cyl6, '#8a5a2b', 0, -0.7, 0, 0, 0, 0, 0.06, 0.75, 0.06);
+    add(armR, new THREE.SphereGeometry(0.14, 8, 4, 0, 2 * PI, PI / 2, PI / 2), '#b9bcc4', 0, -1.05, 0);
   }
   return { group, body, legL, legR, armL, armR, head, phase: 0 };
 }
@@ -251,6 +257,7 @@ function animChar(ch, speed, dt, mode) { // mode: 'carry' | 'pull' | 'chop' | nu
   if (mode === 'carry') { al = 0.55 + s * 0.15 * run; ar = 0.55 - s * 0.15 * run; }
   if (mode === 'pull') { al = ar = -1.25 + Math.sin(ch.phase * 3) * 0.08; }
   if (mode === 'chop') { al = -0.9; ar = -1.3 + Math.sin(ch.phase * 7) * 0.6; }
+  if (mode === 'stir') { al = -0.7; ar = -1.05 + Math.sin(ch.phase * 2.5) * 0.25; ch.body.rotation.y = Math.sin(ch.phase * 2.5) * 0.18; }
   ch.armL.rotation.x += (al - ch.armL.rotation.x) * Math.min(1, dt * 14);
   ch.armR.rotation.x += (ar - ch.armR.rotation.x) * Math.min(1, dt * 14);
 }
@@ -543,6 +550,7 @@ function buildKitchen() {
     add(g, new THREE.CylinderGeometry(0.55, 0.42, 0.62, 12), '#3a3a42', 0, 0.98, 0); add(g, G.cyl, '#f0a040', 0, 1.28, 0, 0, 0, 0, 0.96, 0.02, 0.96);
     add(g, new THREE.TorusGeometry(0.55, 0.06, 4, 14), '#55555f', 0, 1.29, 0, PI / 2, 0, 0); blob(g, 1.0); return g; };
   fx.pot1 = pot(2.3); fx.pot2 = pot(4.3); fx.pot2.visible = false;
+  fx.potboy = makeChar('potboy'); fx.potboy.group.position.set(1.15, 0, 0); fx.potboy.group.rotation.y = -PI / 2; fx.pot2.add(fx.potboy.group); blob(fx.potboy.group, 0.5);
   const tbl = new THREE.Group(); world.add(tbl);
   add(tbl, G.box, '#9a6235', 3.3, 0.22, 0, 0, 0, 0, 1.4, 0.44, 1.1); add(tbl, G.box, '#c98d55', 3.3, 0.46, 0, 0, 0, 0, 1.5, 0.05, 1.2);
   standTile(0, -3.6); standTile(3.3, 1.35);
@@ -550,7 +558,7 @@ function buildKitchen() {
   piles.pot = makePile('bowl', 'pot_limit', i => { const c = i / 7 | 0; return new V3(3.3 + ((c % 3) - 1) * 0.44, 0.5 + (i % 7) * ITEM_H.bowl, ((c / 3 | 0) - 0.5) * 0.5); });
   fx.chef = makeChar('chef'); fx.chef.group.position.set(-1.45, 0, -2); fx.chef.group.rotation.y = PI / 2; world.add(fx.chef.group); blob(fx.chef.group, 0.5);
   processors.push({ name: 'board', active: true, input: piles.board, out: piles.pot, drop: new V3(0, 0, -3.6), work: new V3(-0.35, 0.95, -2),
-    outFrom: () => new V3(2.3, 1.4, -2), timeKey: 'cook_time', perKey: 'bowls_per_fish', outType: 'bowl', chef: fx.chef, cur: null, t: 0, speed: () => state.pot2 ? 2 : 1 });
+    pots: () => state.pot2 ? [new V3(2.3, 1.4, -2), new V3(4.3, 1.4, -2)] : [new V3(2.3, 1.4, -2)], timeKey: 'cook_time', perKey: 'bowls_per_fish', outType: 'bowl', chef: fx.chef, slots: [], boardBusy: false });
   // zone 2: grill yard
   fx.z2 = new THREE.Group(); world.add(fx.z2); fx.z2.visible = false;
   const gr = new THREE.Group(); gr.position.set(17.5, 0, -2.4); fx.z2.add(gr);
@@ -565,7 +573,7 @@ function buildKitchen() {
   piles.sushi = makePile('plate', 'sushi_limit', i => { const c = i / 6 | 0; return new V3(19.9 + ((c % 3) - 1) * 0.5, 0.5 + (i % 6) * ITEM_H.plate, -0.6 + ((c / 3 | 0) - 0.5) * 0.45); });
   fx.grillchef = makeChar('grillchef'); fx.grillchef.group.position.set(16.2, 0, -2.4); fx.grillchef.group.rotation.y = PI / 2; fx.z2.add(fx.grillchef.group); blob(fx.grillchef.group, 0.5);
   processors.push({ name: 'grill', active: false, input: piles.grill, out: piles.sushi, drop: new V3(17.5, 0, -4.1), work: new V3(17.3, 1.0, -2.4),
-    outFrom: () => new V3(17.5, 1.3, -2.4), timeKey: 'grill_time', perKey: 'plates_per_fish', outType: 'plate', chef: fx.grillchef, cur: null, t: 0, speed: () => 1 });
+    pots: () => [new V3(17.5, 1.3, -2.4)], timeKey: 'grill_time', perKey: 'plates_per_fish', outType: 'plate', chef: fx.grillchef, slots: [], boardBusy: false });
 }
 function buildCounters() {
   counters = [];
@@ -732,28 +740,45 @@ function updateRods(dt) {
   }
 }
 function updateProcessors(dt) {
+  // The chef cuts one fish at a time on the board, then drops it into a free pot; each pot cooks
+  // its own fish and throws its own dishes. A second pot means two fish cooking at once.
   for (const pr of processors) {
     if (!pr.active) continue;
-    if (!pr.cur) {
-      const f = pr.input.top(), per = tune[pr.perKey];
-      if (f && pr.out.items.length + per <= pr.out.limit()) {
-        pr.input.items.pop(); pr.cur = f; fly(f, f.mesh.position, () => pr.work, 0.18, 0.35); pr.t = 0; pr.chop = 0;
+    const pots = pr.pots(), per = tune[pr.perKey], cut = Math.min(tune.cut_time, tune[pr.timeKey] * 0.5);
+    while (pr.slots.length < pots.length) pr.slots.push({ cur: null, t: 0, phase: null });
+    pr.chef.mode = null;
+    pr.slots.forEach((sl, i) => {
+      const pot = pots[i];
+      if (!sl.cur) {
+        const busy = pr.slots.filter(q => q.cur).length, f = pr.input.top();
+        if (f && !pr.boardBusy && pr.out.items.length + per * (busy + 1) <= pr.out.limit()) {
+          pr.input.items.pop(); sl.cur = f; sl.t = 0; sl.phase = 'cut'; pr.boardBusy = true; pr.chop = 0;
+          fly(f, f.mesh.position, () => pr.work, 0.18, 0.35);
+        }
+        return;
       }
-      pr.chef.mode = null;
-    } else if (!pr.cur.flying) {
-      pr.t += dt * pr.speed(); pr.chef.mode = 'chop';
-      pr.chop -= dt; if (pr.chop <= 0) { pr.chop = 0.22; if (pr.cur.mesh.position.distanceTo(player.pos) < 9) sfx.chop(); }
-      pr.cur.mesh.scale.setScalar(Math.max(0.3, 1 - pr.t / tune[pr.timeKey] * 0.6));
-      if (pr.t >= tune[pr.timeKey]) {
-        const gold = pr.cur.gold; release(pr.cur); pr.cur = null;
-        const from = pr.outFrom(); puffs(from, 4, '#ffffff', 1);
-        if (from.distanceTo(player.pos) < 10) sfx.puff();
-        for (let k = 0; k < tune[pr.perKey]; k++) {
-          const it = newItem(pr.outType, gold); pr.out.items.push(it); const idx = pr.out.items.length - 1;
-          fly(it, from, () => pr.out.slot(pr.out.items.indexOf(it) >= 0 ? pr.out.items.indexOf(it) : idx), 0.35, 1.0, null, k * 0.09);
+      if (sl.cur.flying) return;
+      sl.t += dt;
+      if (sl.phase === 'cut') {
+        pr.chef.mode = 'chop';
+        pr.chop -= dt; if (pr.chop <= 0) { pr.chop = 0.22; if (pr.work.distanceTo(player.pos) < 9) sfx.chop(); }
+        if (sl.t >= cut) { // into the pot
+          sl.phase = 'cook'; sl.t = 0; pr.boardBusy = false;
+          const f = sl.cur; fly(f, f.mesh.position, () => pot, 0.3, 0.9, () => { f.mesh.visible = false; });
+        }
+      } else {
+        sl.cur.mesh.visible = false;
+        if (sl.t >= Math.max(0.1, tune[pr.timeKey] - cut)) {
+          const gold = sl.cur.gold; release(sl.cur); sl.cur = null;
+          const from = pot.clone(); puffs(from, 4, '#ffffff', 1);
+          if (from.distanceTo(player.pos) < 10) sfx.puff();
+          for (let k = 0; k < per; k++) {
+            const it = newItem(pr.outType, gold); pr.out.items.push(it); const idx = pr.out.items.length - 1;
+            fly(it, from, () => pr.out.slot(pr.out.items.indexOf(it) >= 0 ? pr.out.items.indexOf(it) : idx), 0.35, 1.0, null, k * 0.09);
+          }
         }
       }
-    }
+    });
     animChar(pr.chef, 0, dt, pr.chef.mode);
   }
 }
@@ -1001,7 +1026,7 @@ function reset() {
   buildEnvironment(); buildRods(); buildKitchen(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
   fx.obstacles = () => {
     const o = [[0, -2, 1.1], [-1.45, -2, 0.5], [2.3, -2, 0.85], [3.3, 0, 0.8]];
-    if (state.pot2) o.push([4.3, -2, 0.85]);
+    if (state.pot2) o.push([4.3, -2, 0.85], [5.45, -2, 0.5]);
     if (state.gateOpen) o.push([17.5, -2.4, 1.1], [16.2, -2.4, 0.5], [19.9, -0.6, 0.8]);
     return o;
   };
@@ -1019,6 +1044,7 @@ function tick3D(dt) { // the camp keeps running under every overlay
   updatePlayer(dt); updateWorkers(dt); updateRods(dt);
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
+  if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
@@ -1026,9 +1052,9 @@ function tick3D(dt) { // the camp keeps running under every overlay
   fx.lock.visible = !state.gateOpen; fx.cover.material.opacity = 0.42 * (1 - state.gateAnim); fx.cover.visible = state.gateAnim < 1;
   // steam over working pots
   fx.steamT = (fx.steamT || 0) - dt;
-  if (fx.steamT <= 0) { fx.steamT = 0.35; if (processors[0].cur) particle('puff', new V3(2.3 + rr(-0.2, 0.2), 1.4, -2), new V3(0, 1.2, 0), 1.0, '#ffffff', 0.7);
-    if (state.pot2 && processors[0].cur) particle('puff', new V3(4.3, 1.4, -2), new V3(0, 1.2, 0), 1.0, '#ffffff', 0.7);
-    if (processors[1].cur) particle('puff', new V3(17.5 + rr(-0.5, 0.5), 1.1, -2.4), new V3(0, 1.4, 0), 0.9, '#d8d4cf', 0.6); }
+  if (fx.steamT <= 0) { fx.steamT = 0.35; // steam only over a pot that is cooking
+    for (const pr of processors) { const pots = pr.pots(); pr.slots.forEach((sl, i) => { if (sl.phase === 'cook' && sl.cur && pots[i])
+      particle('puff', pots[i].clone().add(new V3(rr(-0.2, 0.2), 0, 0)), new V3(0, 1.2, 0), 1.0, pr.name === 'grill' ? '#d8d4cf' : '#ffffff', 0.7); }); } }
   state.coinT -= dt; if (state.coinT <= 0) state.coinStreak = 0;
   for (let i = floats.length - 1; i >= 0; i--) { floats[i].t += dt; floats[i].p.y += dt * 1.2; if (floats[i].t > 0.9) floats.splice(i, 1); }
   // measured automated income, for offline earnings
@@ -1049,9 +1075,9 @@ function buildFigures() {
   const g = new THREE.Group(); s.add(g);
   add(g, G.box, '#e8964a', 0, -0.15, 0.6, 0, 0, 0, 14, 0.3, 4.5);
   const list = [];
-  const chars = [['player', 'Player (you)'], ['fisher', 'Fisher (hired)'], ['chef', 'Soup chef'], ['grillchef', 'Grill chef']];
-  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-5.4 + i * 1.8, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
-  [['Soldier', 0], ['Gold soldier', 1]].forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(1.8 + i * 2.0, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
+  const chars = [['player', 'Player (you)'], ['fisher', 'Fisher (hired)'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef']];
+  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-6.8 + i * 1.75, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
+  [['Soldier', 0], ['Gold soldier', 1]].forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(2.4 + i * 2.0, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
   [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {
     const m = new THREE.Mesh(ITEM_GEO[t][gold], VMAT); m.position.set(-4.4 + i * 2.2, 0.02, 2.2); m.scale.setScalar(1.6); m.rotation.y = 0.5; g.add(m); list.push([name, m.position.clone()]); });
   const cam = new THREE.PerspectiveCamera(34, W / H, 0.5, 100); cam.position.set(0, 6.5, 15); cam.lookAt(0, 0.9, 0.8);

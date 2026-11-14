@@ -11,6 +11,8 @@ Built from: `Game Design Document Fishing Camp.md` (the source of truth for numb
 6. Events: Usual: golden school only; general's visit and blizzard later.
 7. Slice: A slice: a short session from start to finish.
 Out of scope is fine: no ads or in-app purchases in this build.
+After play: there are 2 grills but only one cooker, is it bug?
+After play: yes please (both pots cooking in parallel, and a pot-boy at the second pot)
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
@@ -63,6 +65,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Save after every unlock (localStorage) + offline income capped at 2 h with a welcome-back popup
 - [ ] Feedback from the GDD's table: splash, rising-pitch clacks, puffs, bell, pop-up bounce (synth sound)
 - [x] Every number in `config.js`
+- [x] Second pot cooks in parallel: the chef cuts, each pot cooks its own fish and throws its own bowls; a pot-boy stirs the second pot
 
 ## Your systems
 - hiring workers · in the slice
