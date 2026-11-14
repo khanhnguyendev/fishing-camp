@@ -1,0 +1,38 @@
+L1	pass	evidence/play.png	sunny warm-lit deck, busy soldier crowd, blossom tree, river
+L2	pass	index.html:919	three.js 3D; camera pitch 50 deg, turned 45 deg, lagged follow; glide to unlock focus for glide_time (index.html:651)
+L3	pass	evidence/figures.png	big-head chibi characters; soldiers one baked shared model; simple stackable items
+L4	pass	evidence/play.png	orange plank deck, blue river with highlights, grass, round-post fences, pink trees, black soldiers; gold soldiers in figures.png; hemisphere light warm sky / violet ground
+L5	pass	evidence/figures.png	flatShading Lambert, no outlines, blob shadow under every character
+L6	not_assessed	index.html:628	stack trails motion on a spring and sways; growing past the top of the frame needs a long session with Bigger back, not seen in a shot
+L7	pass	evidence/figures.png	all figures drawn from meshes; no emoji; original look
+F1	pass	index.html:862	WASD/arrows plus floating pointer joystick; camera lag and glide (index.html:919); keys moved the player in play.png
+F2	pass	evidence/play.png	one item type per stack (canTake), capacity, fly on/off one by one with pickup_interval; lean spring index.html:628
+F3	pass	evidence/play.png	3 rods, chef board, soup pot, counter visible; conveyor index.html:812; grill built in zone 2 index.html:556
+F4	pass	index.html:760	432 instanced soldiers fading into fog; 4 front-row slots with want-bubbles step back and refill
+F5	pass	index.html:675	hire/fist/padlock icons, cash drains in bundles, number counts down, partial payment kept and saved
+F6	pass	index.html:840	fishers loop rod to board; conveyor carries bowls; workers never touch cash piles
+F7	pass	index.html:376	fisher x3 100, conveyor 200, gate 500, second pot 500 in GDD order plus carry/speed upgrades; zone 2 grill, sushi, gold soldiers
+F8	pass	evidence/play.png	yellow arrow at the player's feet and bouncing marker over the target, first guide_time seconds
+F9	pass	evidence/play.png	cash total top-left; +N floats rise from the soldier who paid (index.html:1062)
+F10	pass	index.html:910	first at 150 s then every 180-300 s, 20 s of gold fish selling at x5, banner and gold river
+F11	pass	index.html:966	check saw the save in localStorage; load applies unlocks and shows welcome-back popup with income capped at offline_cap
+F12	not_assessed	index.html:699	splash, puffs, bounce pops and bell are coded; the synth sounds cannot be heard by the check
+F13	pass	config.js:7	every timing, price, capacity, speed and camera value lives in config.js and is read through tune
+S1	pass	index.html:651	hiring spawns a fisher on its rod route
+S2	pass	index.html:812	conveyor plus Bigger back, Swift feet, Second pot upgrades
+S3	pass	index.html:651	padlock gate opens, doors swing, yard shade fades, walkable area grows
+S4	pass	index.html:973	save after every unlock and on leave; offline income from measured automated rate, 2 h cap
+S5	pass	index.html:910	golden school timer, gold fish and dishes
+M1	pass	evidence/play.png	player starts on the orange deck by the river
+M2	pass	evidence/play.png	arrow at the player's feet points to a white-outlined tile by a bamboo rod
+M3	pass	index.html:707	rod bends, line glows yellow after half the fish_time, fish arcs onto the back after 2 s
+M4	pass	evidence/play.png	keyed run carried the fish to the board; it left the back and the chef cut it
+M5	pass	evidence/play.png	4 bowls stacked on the kitchen table after the pot puffed
+M6	pass	index.html:896	bowls hop on one by one with clacks rising in pitch along the streak
+M7	pass	index.html:760	front-row soldiers take bowls one by one; cash bursts to the pile and flies to the player
+M8	not_assessed	index.html:675	tile, cash stream and fisher pop are built; the ~60 s timing needs a real play
+C1	pass	index.html:792	no fail state; the slice ends on the results screen and play continues
+C2	not_assessed	config.js:7	stations have limits and rates from the GDD; whether the bottleneck moves as described needs play
+C3	not_assessed	config.js:7	prices from the GDD (100, 100, 100, 200, 500, 500); 60-90 s per unlock needs play
+C4	pass	index.html:675	paid amount stays on the tile when you leave and is saved
+C5	pass	index.html:892	sushi pays 15 vs soup 5; fish from the yard rod can go to either the grill or the soup board

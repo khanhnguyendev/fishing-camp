@@ -1,0 +1,7 @@
+low-poly	flat-shaded low-poly meshes built from boxes, cylinders and icosahedrons (three.js, flatShading)	evidence/play.png
+chunky low-poly chibi	big-head short-body characters and soldiers (head ~0.8 of body)	evidence/figures.png
+orange wooden deck	floor of orange planks in four alternating tones	evidence/play.png
+blue river	blue river along the north edge with moving white highlights	evidence/play.png
+tall stacks on the character's back	items stack on a back frame, sway and lean with inertia; capacity grows with Bigger back	evidence/play.png
+arcade idle games	one-input stand-on-tile loop, price tiles that drain cash, hired workers	evidence/play.png
+Build it as the doc says	3D tilted ~50 deg and turned 45 deg camera following the player, warm daylight, blob shadows	evidence/play.png

@@ -1,0 +1,59 @@
+time	2026-11-14 22:14:01
+keep	lines	0	pinned	0
+briefword	low-poly	shown	evidence/play.png
+checklist	L1	unlisted	-	Mood: bright, warm, bustling — a sunny chibi army camp that is always busy *(inferred (strong))*	
+checklist	L2	unlisted	-	View: 3D (three.js, low-poly) · Camera: perspective tilted ~50°, turned 45°, follows with slight lag; on unlock glides to the new structure for 1.5 s and back	
+checklist	L3	unlisted	-	Shapes: chunky and round; big-head short-body characters; soldiers are one shared model; fish, bowls, plates, cash are simple stackable shapes	
+checklist	L4	unlisted	-	Palette: orange wooden deck (ground), blue river with moving highlights (water), green grass, round-post fences, pink blossom trees at edges; black-armored soldiers (zone 1), gold-armored (zone 2); yellow-gold for cash and glow. Warm light, cool blue-violet shadows *(guessed)*	
+checklist	L5	unlisted	-	Rules: flat cartoon shading, no outlines *(guessed)*, round blob shadow under characters	
+checklist	L6	unlisted	-	Signature: the back stack sways and leans with inertia on turns and grows past the top of the frame	
+checklist	L7	unlisted	-	References: the general look of arcade idle games — nothing copied. Every figure drawn, no emoji, no plain circles.	
+checklist	F1	unlisted	-	Movement with floating joystick and keys; camera follows with lag and glides on unlocks	
+checklist	F2	unlisted	-	Back stack: one item type at a time, capacity; items fly on and drop off one by one; sway and lean	
+checklist	F3	unlisted	-	Stations: 3 rods, chef's board + soup pot, fence counter, conveyor, grill (zone 2)	
+checklist	F4	unlisted	-	Endless soldier crowd; front row has logic with want-bubbles, steps back and refills	
+checklist	F5	unlisted	-	Price tiles (hire / upgrade / open-zone icons) that drain cash and count down, keeping partial payment	
+checklist	F6	unlisted	-	Workers: fishers (rod → board) and carrier/conveyor; workers never touch cash	
+checklist	F7	unlisted	-	Zone 1's six unlocks in the GDD's order and prices, then zone 2 (grill, sushi, gold soldiers)	
+checklist	F8	unlisted	-	Guide arrow to the next useful task for the first 3 minutes	
+checklist	F9	unlisted	-	Cash counter top corner; money rises from where it was made	
+checklist	F10	unlisted	-	Golden school: every 3–5 min, gold fish for 20 s selling at 5×	
+checklist	F11	unlisted	-	Save after every unlock (localStorage) + offline income capped at 2 h with a welcome-back popup	
+checklist	F12	unlisted	-	Feedback from the GDD's table: splash, rising-pitch clacks, puffs, bell, pop-up bounce (synth sound)	
+checklist	F13	unlisted	-	Every number in `config.js`	
+checklist	S1	unlisted	-	hiring workers · in the slice	
+checklist	S2	unlisted	-	conveyor and upgrades · in the slice	
+checklist	S3	unlisted	-	zone gates · in the slice	
+checklist	S4	unlisted	-	offline income and save · in the slice	
+checklist	S5	unlisted	-	golden school · in the slice	
+checklist	M1	unlisted	-	You stand on an orange deck by the river.	
+checklist	M2	unlisted	-	An arrow at your feet points to a white-outlined tile beside a bamboo rod.	
+checklist	M3	unlisted	-	You walk on; the rod bends and glows, and after 2 s a tuna arcs onto your back.	
+checklist	M4	unlisted	-	The arrow points to the chef's board; the fish hops off as you walk in.	
+checklist	M5	unlisted	-	The pot puffs and 4 bowls stack beside it.	
+checklist	M6	unlisted	-	Walk past: bowls hop onto your back with rising clacks.	
+checklist	M7	unlisted	-	Carry them to the fence counter: front-row soldiers grab them one by one, cash bursts and flies to you.	
+checklist	M8	unlisted	-	Around 60 s, after 5 fish, you stand on the first price tile ("100"): cash streams in, the number counts down, and a fisher pops up and starts working rod 1 — the first job you no longer do yourself.	
+checklist	C1	unlisted	-	No losing; the pressure is the moving bottleneck.	
+checklist	C2	unlisted	-	At first you are the bottleneck; after 3 fishers the kitchen is slow; after the second pot carrying is slow and the conveyor fixes it.	
+checklist	C3	unlisted	-	Each next unlock costs 60–90 s of income; prices rise ~1.5× per step and the gate costs 500.	
+checklist	C4	unlisted	-	Leaving a tile midway keeps what you paid.	
+checklist	C5	unlisted	-	Zone 2's sushi pays 3× but splits the fish between two dishes.	
+webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+browser	HeadlessChrome/157.0.0.0
+console	play	1944	[.WebGL-0x7284001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+scene	play	0	title
+scene	play	1	play
+digits	log	bold 30px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+digits	log	bold 52px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+digits	log	bold 34px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+measure	step-time	play	0.216	8.700	699
+lane	play	stop	11.7	1094
+console	play	0	[.WebGL-0x7284001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	play	0	[.WebGL-0x7284001b7600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+saved	play	699	localstorage	fishing-camp-save-v1
+uncaught	play	0
+text	play	canvas	80,32,99,56	46.5	16.14	inside	0
+screen	play	drawn
+shot	play	prototypes/fishing-camp/evidence/play.png
+responds	changed	4

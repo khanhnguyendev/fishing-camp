@@ -1,0 +1,1208 @@
+<!doctype html>
+<!-- PROTOTYPE - NOT FOR PRODUCTION -->
+<!-- Question: Does carry → cook → serve → hire feel satisfying enough to keep someone playing through all six zone-1 unlocks? -->
+<!-- Date: 2026-11-14 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Fishing Camp</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d3b2a; overflow: hidden; touch-action: none; }
+  body { font-variant-numeric: tabular-nums; }
+  canvas { display: block; position: absolute; }
+  #game { z-index: 2; }
+  #world { z-index: 1; }
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<canvas id="game"></canvas>
+<script src="vendor/three.js"></script>
+<script src="config.js"></script>
+<script>
+'use strict';
+// Fishing Camp: an arcade idle slice. One input (move); every action fires by standing on a tile.
+// Catch fish -> chef's board -> soup bowls -> serving counter -> cash -> price tiles -> hire/upgrade/open.
+
+// ---- Built to be checked ----------------------------------------------------------------
+const params = new URLSearchParams(location.search);
+const tune = new Proxy({}, { get: (_, k) => CONFIG[k].value }); // live: tune.speed is CONFIG.speed.value
+const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
+const W = 1280, H = 720;        // logical size of the HUD layer
+const FONT = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif';
+const TITLE = 'Fishing Camp';
+const CONTROLS = ['WASD / Arrows: move', 'or drag anywhere: joystick', 'Stand on a tile to act', 'P: pause   M: mute'];
+const clock = window.GAME_CLOCK || { now: () => performance.now() / 1000 }; // a check may inject one
+const CHEAP = params.get('render') === 'cheap'; // a headless shot or check: 3D draws cheap; players never see it
+let seed;
+function rng() { // mulberry32; every gameplay random call reads this, never Math.random
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const rr = (a, b) => a + (b - a) * rng();
+const events = []; // window.game.events: anything the game wants a run to see
+
+// ---- Screen: a 3D world canvas under a 2D HUD canvas ------------------------------------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const worldCanvas = document.getElementById('world');
+const renderer = new THREE.WebGLRenderer({ canvas: worldCanvas, antialias: !CHEAP });
+renderer.setPixelRatio(CHEAP ? 0.5 : Math.min(2, devicePixelRatio || 1));
+let viewScale = 1;
+function fit() { // letterboxed 16:9 at any window size
+  const k = Math.min(innerWidth / W, innerHeight / H); viewScale = k;
+  const cw = Math.round(W * k), ch = Math.round(H * k);
+  const r = k * (devicePixelRatio || 1);
+  canvas.width = Math.round(W * r); canvas.height = Math.round(H * r);
+  for (const el of [canvas, worldCanvas]) {
+    el.style.width = cw + 'px'; el.style.height = ch + 'px';
+    el.style.left = Math.floor((innerWidth - cw) / 2) + 'px'; el.style.top = Math.floor((innerHeight - ch) / 2) + 'px';
+  }
+  renderer.setSize(cw, ch, false);
+  ctx.setTransform(r, 0, 0, r, 0, 0);
+}
+addEventListener('resize', fit); fit();
+function clearHud() { ctx.clearRect(0, 0, W, H); }
+function text(s, x, y, size, c, align = 'center', stroke = true) {
+  ctx.font = `bold ${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, size * 0.2); ctx.strokeStyle = 'rgba(48,28,18,0.9)'; ctx.strokeText(s, x, y); }
+  ctx.fillStyle = c; ctx.fillText(s, x, y);
+}
+function rrect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'K' : String(Math.floor(n));
+
+// ---- Input: keys by position (event.code), OS key repeat ignored; a floating joystick ------
+const down = new Set(), hit = new Set();
+const pressed = code => hit.has(code); // true for one step after the key goes down
+addEventListener('keydown', e => {
+  startAudio();
+  if (!e.repeat) { down.add(e.code); hit.add(e.code); }
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => down.delete(e.code));
+addEventListener('blur', () => { down.clear(); joy.active = false; });
+const joy = { active: false, id: -1, x0: 0, y0: 0, x: 0, y: 0 };
+let tapped = null, touchUsed = false; // a click/tap this step, in HUD coords
+function hudXY(e) { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
+canvas.addEventListener('pointerdown', e => {
+  startAudio(); if (e.pointerType === 'touch') touchUsed = true;
+  const [x, y] = hudXY(e); tapped = { x, y };
+  if (scene === 'play' && !onGear(x, y) && !(state && state.welcome)) {
+    joy.active = true; joy.id = e.pointerId; joy.x0 = joy.x = x; joy.y0 = joy.y = y;
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+});
+canvas.addEventListener('pointermove', e => { if (joy.active && e.pointerId === joy.id) { [joy.x, joy.y] = hudXY(e); } });
+const endJoy = e => { if (e.pointerId === joy.id) joy.active = false; };
+canvas.addEventListener('pointerup', endJoy); canvas.addEventListener('pointercancel', endJoy);
+const GEAR = { x: W - 48, y: 44, r: 26 };
+const onGear = (x, y) => Math.hypot(x - GEAR.x, y - GEAR.y) < GEAR.r + 8;
+function buzz(ms) { try { if (touchUsed && navigator.vibrate) navigator.vibrate(ms); } catch (_) {} }
+
+// ---- Audio: started on first input, mute on M --------------------------------------------
+let audio = null, muted = false;
+function startAudio() {
+  try {
+    if (!audio) {
+      const ac = window.GAME_AUDIO || new (window.AudioContext || window.webkitAudioContext)(); // a check may inject one
+      const out = ac.createGain(); out.gain.value = muted ? 0 : tune.volume;
+      out.connect(ac.destination);
+      const nb = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate), d = nb.getChannelData(0);
+      let s = 12345; for (let i = 0; i < d.length; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; d[i] = s / 0x3fffffff - 1; }
+      audio = { ac, out, noise: nb };
+    }
+    if (audio.ac.state === 'suspended') audio.ac.resume();
+  } catch (_) {}
+}
+function setMuted(m) { muted = m; if (audio) audio.out.gain.value = m ? 0 : tune.volume; }
+addEventListener('tune', () => setMuted(muted));
+function tone(freq, dur, type = 'square', vol = 0.3, slide = 0) {
+  if (!audio || muted) return;
+  const t = audio.ac.currentTime, o = audio.ac.createOscillator(), g = audio.ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audio.out); o.start(t); o.stop(t + dur);
+}
+function noise(dur, vol, freq, q = 1) {
+  if (!audio || muted) return;
+  const t = audio.ac.currentTime, src = audio.ac.createBufferSource(), f = audio.ac.createBiquadFilter(), g = audio.ac.createGain();
+  src.buffer = audio.noise; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(audio.out); src.start(t); src.stop(t + dur);
+}
+const semis = n => Math.pow(2, n / 12);
+const sfx = {
+  tension(p) { tone(180 + p * 380, 0.09, 'sawtooth', 0.035); },
+  splash() { noise(0.3, 0.35, 1100, 0.8); tone(420, 0.12, 'sine', 0.12, 0.5); },
+  clack(i) { tone(520 * semis(Math.min(i, 24)), 0.06, 'triangle', 0.18); },
+  drop(i) { tone(360 * semis(Math.min(i, 18)), 0.05, 'triangle', 0.12); },
+  coin(i) { tone(1100 * semis(Math.min(i, 30) * 0.5), 0.05, 'square', 0.05); },
+  pay(i) { tone(700 * semis(Math.min(i, 30) * 0.4), 0.04, 'square', 0.05); },
+  bell() { tone(880, 0.9, 'sine', 0.28); tone(1320, 0.7, 'sine', 0.18); tone(1760, 0.5, 'sine', 0.1); },
+  cheer() { noise(0.45, 0.12, 1600, 0.6); tone(660, 0.12, 'triangle', 0.06, 1.3); },
+  puff() { noise(0.12, 0.06, 700, 1); },
+  chop() { noise(0.05, 0.08, 2600, 2); },
+  golden() { [0, 4, 7, 12].forEach((s, i) => setTimeout(() => tone(660 * semis(s), 0.25, 'triangle', 0.14), i * 90)); },
+};
+
+// ---- 3D toolkit --------------------------------------------------------------------------
+const V3 = THREE.Vector3, PI = Math.PI;
+const scene3 = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, W / H, 0.5, 220);
+const MATS = {};
+function mat(c) { return MATS[c] || (MATS[c] = new THREE.MeshLambertMaterial({ color: c, flatShading: true })); }
+const VMAT = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const G = {
+  box: new THREE.BoxGeometry(1, 1, 1),
+  cyl: new THREE.CylinderGeometry(0.5, 0.5, 1, 8),
+  cyl6: new THREE.CylinderGeometry(0.5, 0.5, 1, 6),
+  sph: new THREE.SphereGeometry(0.5, 10, 8),
+  cone: new THREE.ConeGeometry(0.5, 1, 8),
+  cone4: new THREE.ConeGeometry(0.5, 1, 4),
+  ico: new THREE.IcosahedronGeometry(0.5, 0),
+  hemi: new THREE.SphereGeometry(0.5, 10, 6, 0, 2 * PI, 0, PI / 2),
+};
+function add(parent, geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) {
+  const m = new THREE.Mesh(geo, typeof color === 'string' ? mat(color) : color);
+  m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.set(sx, sy, sz); parent.add(m); return m;
+}
+function mx(x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) {
+  return new THREE.Matrix4().compose(new V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new V3(sx, sy, sz));
+}
+function bake(parts) { // [[geometry, color, matrix]] -> one vertex-coloured geometry
+  const pos = [], col = [], c = new THREE.Color();
+  for (const [g0, color, m] of parts) {
+    const g = g0.index ? g0.toNonIndexed() : g0.clone(); g.applyMatrix4(m);
+    const p = g.attributes.position.array; c.set(color);
+    for (let i = 0; i < p.length; i += 3) { pos.push(p[i], p[i + 1], p[i + 2]); col.push(c.r, c.g, c.b); }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals(); return out;
+}
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); draw(g, c);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return { c, g, t };
+}
+const BLOB = canvasTex(64, 64, g => {
+  const gr = g.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(40,20,60,0.55)'); gr.addColorStop(1, 'rgba(40,20,60,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+}).t;
+const BLOB_MAT = new THREE.MeshBasicMaterial({ map: BLOB, transparent: true, depthWrite: false });
+const PLANE = new THREE.PlaneGeometry(1, 1);
+function blob(parent, r) { const m = add(parent, PLANE, BLOB_MAT, 0, 0.02, 0, -PI / 2, 0, 0, r * 2); m.renderOrder = 1; return m; }
+
+// ---- Figures: chibi characters (animated groups) ------------------------------------------
+const SKIN = '#f6cfa3';
+const ROLES = {
+  player:    { tunic: '#2f86e0', pants: '#24345e', hair: '#2b1d16', belt: '#f2c94c' },
+  fisher:    { tunic: '#58a84b', pants: '#4a3b2c', hair: '#3a2618', belt: '#8a5a2b' },
+  chef:      { tunic: '#f4f2ea', pants: '#6b6b78', hair: '#3a2618', belt: '#d84b3a' },
+  grillchef: { tunic: '#b5402e', pants: '#3a2c28', hair: '#20150f', belt: '#f2c94c' },
+};
+const TORSO = new THREE.CylinderGeometry(0.25, 0.33, 0.52, 8);
+const HEAD = new THREE.SphereGeometry(0.4, 10, 8);
+const HAIR = new THREE.SphereGeometry(0.43, 10, 6, 0, 2 * PI, 0, PI * 0.52);
+function makeChar(role) {
+  const C = ROLES[role], group = new THREE.Group(), body = new THREE.Group(); group.add(body);
+  const leg = x => { const p = new THREE.Group(); p.position.set(x, 0.42, 0); body.add(p);
+    add(p, G.box, C.pants, 0, -0.19, 0, 0, 0, 0, 0.17, 0.38, 0.19); add(p, G.box, '#3b2a20', 0, -0.37, 0.04, 0, 0, 0, 0.19, 0.08, 0.27); return p; };
+  const legL = leg(-0.13), legR = leg(0.13);
+  add(body, TORSO, C.tunic, 0, 0.67, 0); add(body, G.cyl, C.belt, 0, 0.5, 0, 0, 0, 0, 0.62, 0.07, 0.62);
+  const arm = x => { const p = new THREE.Group(); p.position.set(x, 0.88, 0); body.add(p);
+    add(p, G.cyl6, C.tunic, 0, -0.16, 0, 0, 0, 0, 0.15, 0.34, 0.15); add(p, G.sph, SKIN, 0, -0.36, 0, 0, 0, 0, 0.17); return p; };
+  const armL = arm(-0.34), armR = arm(0.34);
+  const head = new THREE.Group(); head.position.set(0, 1.3, 0); body.add(head);
+  add(head, HEAD, SKIN); add(head, HAIR, C.hair, 0, 0.02, -0.04, -0.45, 0, 0);
+  add(head, G.sph, '#1d1714', -0.14, 0.0, 0.355, 0, 0, 0, 0.1, 0.13, 0.08); add(head, G.sph, '#1d1714', 0.14, 0.0, 0.355, 0, 0, 0, 0.1, 0.13, 0.08);
+  add(head, G.sph, '#f49a9a', -0.24, -0.1, 0.3, 0, 0, 0, 0.11, 0.06, 0.04); add(head, G.sph, '#f49a9a', 0.24, -0.1, 0.3, 0, 0, 0, 0.11, 0.06, 0.04);
+  if (role === 'player') {
+    add(head, new THREE.TorusGeometry(0.41, 0.05, 5, 16), '#e23b2e', 0, 0.1, 0, PI / 2 - 0.15, 0, 0);
+    add(head, G.box, '#e23b2e', -0.08, 0.05, -0.48, 0.5, 0, 0.5, 0.08, 0.32, 0.04); add(head, G.box, '#e23b2e', 0.08, 0.02, -0.48, 0.6, 0, -0.4, 0.08, 0.3, 0.04);
+    add(head, G.sph, C.hair, 0, 0.32, -0.32, 0, 0, 0, 0.3); // top knot
+    add(body, G.box, '#9a6235', 0, 0.72, -0.33, 0, 0, 0, 0.5, 0.56, 0.07); // back frame for the stack
+    add(body, G.box, '#7a4a26', 0, 0.45, -0.42, 0, 0, 0, 0.56, 0.06, 0.24);
+  } else if (role === 'fisher') {
+    add(head, new THREE.ConeGeometry(0.66, 0.34, 10), '#e7c46e', 0, 0.36, 0); add(head, G.cyl, '#b0402e', 0, 0.22, 0, 0, 0, 0, 0.82, 0.05, 0.82);
+    add(body, G.box, '#c99a52', 0, 0.62, -0.33, 0, 0, 0, 0.36, 0.3, 0.12); // fish basket
+  } else if (role === 'chef') {
+    add(head, new THREE.CylinderGeometry(0.27, 0.23, 0.42, 10), '#ffffff', 0, 0.48, 0); add(head, G.sph, '#ffffff', 0, 0.74, 0, 0, 0, 0, 0.62, 0.42, 0.62);
+    add(body, G.box, '#e8e2d2', 0, 0.55, 0.27, -0.12, 0, 0, 0.42, 0.42, 0.04);
+  } else if (role === 'grillchef') {
+    add(head, new THREE.CylinderGeometry(0.15, 0.24, 0.62, 8), '#1d1a1f', 0, 0.55, -0.08, -0.25, 0, 0);
+    add(body, new THREE.TorusGeometry(0.27, 0.06, 5, 12), '#f5f1e6', 0, 0.94, 0, PI / 2, 0, 0);
+  }
+  return { group, body, legL, legR, armL, armR, head, phase: 0 };
+}
+function animChar(ch, speed, dt, mode) { // mode: 'carry' | 'pull' | 'chop' | null
+  ch.phase += dt * (speed > 0.2 ? 4 + speed * 1.6 : 2);
+  const s = Math.sin(ch.phase), run = Math.min(1, speed / 3);
+  ch.legL.rotation.x = s * 0.8 * run; ch.legR.rotation.x = -s * 0.8 * run;
+  ch.body.position.y = run > 0.05 ? Math.abs(Math.cos(ch.phase)) * 0.07 * run : Math.sin(ch.phase) * 0.012;
+  let al = -s * 0.7 * run, ar = s * 0.7 * run;
+  if (mode === 'carry') { al = 0.55 + s * 0.15 * run; ar = 0.55 - s * 0.15 * run; }
+  if (mode === 'pull') { al = ar = -1.25 + Math.sin(ch.phase * 3) * 0.08; }
+  if (mode === 'chop') { al = -0.9; ar = -1.3 + Math.sin(ch.phase * 7) * 0.6; }
+  ch.armL.rotation.x += (al - ch.armL.rotation.x) * Math.min(1, dt * 14);
+  ch.armR.rotation.x += (ar - ch.armR.rotation.x) * Math.min(1, dt * 14);
+}
+
+// ---- Figures: soldiers (one baked mesh each, drawn in bulk) and items ----------------------
+function soldierGeo(gold) {
+  const A = gold ? '#e1b23a' : '#2b2b35', A2 = gold ? '#a87a22' : '#474756', P = [];
+  P.push([G.box, '#3a2c28', mx(-0.12, 0.2, 0, 0, 0, 0, 0.17, 0.4, 0.19)], [G.box, '#3a2c28', mx(0.12, 0.2, 0, 0, 0, 0, 0.17, 0.4, 0.19)]);
+  P.push([new THREE.CylinderGeometry(0.27, 0.34, 0.56, 8), A, mx(0, 0.68, 0)]);
+  P.push([G.box, A2, mx(-0.34, 0.9, 0, 0, 0, 0.35, 0.24, 0.12, 0.32)], [G.box, A2, mx(0.34, 0.9, 0, 0, 0, -0.35, 0.24, 0.12, 0.32)]);
+  P.push([G.cyl6, A2, mx(-0.37, 0.68, 0.02, 0, 0, 0.12, 0.14, 0.34, 0.14)], [G.cyl6, A2, mx(0.37, 0.74, 0.08, -0.5, 0, -0.1, 0.14, 0.34, 0.14)]);
+  P.push([G.sph, SKIN, mx(0, 1.3, 0, 0, 0, 0, 0.78)]);
+  P.push([G.sph, '#1d1714', mx(-0.14, 1.3, 0.35, 0, 0, 0, 0.1, 0.12, 0.08)], [G.sph, '#1d1714', mx(0.14, 1.3, 0.35, 0, 0, 0, 0.1, 0.12, 0.08)]);
+  P.push([G.hemi, A, mx(0, 1.36, -0.03, -0.3, 0, 0, 0.88, 0.8, 0.88)]);
+  P.push([G.cyl, A2, mx(0, 1.38, 0.02, -0.3, 0, 0, 1.0, 0.05, 1.0)]);
+  P.push([G.cyl6, '#7a5230', mx(0.44, 1.05, 0.12, 0, 0, 0, 0.06, 2.3, 0.06)], [G.cone4, '#dde2e8', mx(0.44, 2.33, 0.12, 0, 0, 0, 0.12, 0.3, 0.12)]);
+  if (!gold) P.push([G.box, '#cc3029', mx(0, 1.82, -0.06, -0.3, 0, 0, 0.07, 0.3, 0.42)]);
+  else {
+    P.push([new THREE.TorusGeometry(0.34, 0.045, 4, 14, PI), '#ffe27a', mx(0, 1.74, 0.12, -0.2, 0, 0)]);
+    P.push([G.cyl6, '#5a3a22', mx(0, 1.65, -0.38, 0, 0, 0, 0.05, 2.0, 0.05)], [G.box, '#d8402e', mx(0.2, 2.3, -0.38, 0, 0, 0, 0.36, 0.72, 0.03)]);
+    P.push([G.box, '#ffe27a', mx(0.2, 2.3, -0.36, 0, 0, 0, 0.14, 0.14, 0.03)]);
+  }
+  return bake(P);
+}
+const SOLDIER_GEO = [soldierGeo(false), soldierGeo(true)];
+const BOWL_BODY = new THREE.CylinderGeometry(0.24, 0.14, 0.17, 10);
+const RIM = new THREE.TorusGeometry(0.235, 0.025, 4, 14);
+function itemGeo(type, gold) {
+  const P = [];
+  if (type === 'fish') {
+    const back = gold ? '#e9b52a' : '#3c6696', belly = gold ? '#fff1a6' : '#e8eef2', fin = gold ? '#d0951a' : '#2b4f7c';
+    P.push([G.sph, back, mx(0, 0.14, 0, 0, 0, 0, 0.72, 0.26, 0.3)], [G.sph, belly, mx(0.02, 0.1, 0, 0, 0, 0, 0.6, 0.16, 0.26)]);
+    P.push([G.cone4, fin, mx(-0.42, 0.14, 0, 0, 0, -PI / 2, 0.3, 0.2, 0.08)], [G.cone4, fin, mx(-0.02, 0.29, 0, 0, 0, 0, 0.14, 0.14, 0.05)]);
+    P.push([G.sph, '#f2d84a', mx(-0.18, 0.06, 0, 0, 0, 0, 0.1, 0.06, 0.05)], [G.sph, '#141414', mx(0.25, 0.17, 0.11, 0, 0, 0, 0.06)], [G.sph, '#141414', mx(0.25, 0.17, -0.11, 0, 0, 0, 0.06)]);
+  } else if (type === 'bowl') {
+    P.push([BOWL_BODY, '#f4f1e8', mx(0, 0.085, 0)], [RIM, gold ? '#f2c230' : '#3d7fc4', mx(0, 0.165, 0, PI / 2, 0, 0)]);
+    P.push([G.cyl, gold ? '#ffd84d' : '#f0a040', mx(0, 0.178, 0, 0, 0, 0, 0.42, 0.012, 0.42)], [G.box, '#5fb64a', mx(0.05, 0.188, 0.03, 0, 0.5, 0, 0.1, 0.02, 0.05)]);
+  } else if (type === 'plate') {
+    P.push([G.box, '#a96b3a', mx(0, 0.03, 0, 0, 0, 0, 0.5, 0.06, 0.34)]);
+    for (let i = -1; i <= 1; i++) P.push([G.box, '#fbfaf3', mx(i * 0.15, 0.1, 0, 0, 0, 0, 0.11, 0.08, 0.18)], [G.box, gold ? '#ffd84d' : '#ff8a5c', mx(i * 0.15, 0.15, 0, 0, 0, 0, 0.13, 0.03, 0.21)]);
+  } else if (type === 'cash') {
+    P.push([G.box, '#6cc35a', mx(0, 0.05, 0, 0, 0, 0, 0.38, 0.1, 0.22)], [G.box, '#f6d34a', mx(0, 0.05, 0, 0, 0, 0, 0.09, 0.11, 0.23)]);
+  }
+  return bake(P);
+}
+const ITEM_H = { fish: 0.28, bowl: 0.19, plate: 0.17, cash: 0.1 };
+const ITEM_GEO = {};
+for (const t of ['fish', 'bowl', 'plate', 'cash']) ITEM_GEO[t] = [itemGeo(t, false), itemGeo(t, true)];
+
+// ---- World state ----------------------------------------------------------------------------
+let scene, state, world, player, rods, processors, piles, counters, tiles, workers, tweens, parts, pops, floats, belt, fx;
+const pools = {};
+function newItem(type, gold = false) {
+  const key = type + (gold ? 1 : 0), pool = pools[key] || (pools[key] = []);
+  let mesh = pool.pop();
+  if (!mesh) mesh = new THREE.Mesh(ITEM_GEO[type][gold ? 1 : 0], VMAT);
+  mesh.visible = true; mesh.scale.setScalar(1); mesh.rotation.set(0, 0, 0); world.add(mesh);
+  return { mesh, type, gold, flying: false, value: 0, key };
+}
+function release(it) { it.mesh.visible = false; world.remove(it.mesh); (pools[it.key] || (pools[it.key] = [])).push(it.mesh); }
+function fly(it, from, toFn, dur, h, onDone, delay = 0) {
+  it.flying = true; it.mesh.position.copy(from);
+  tweens.push({ it, from: from.clone(), toFn, t: -delay, dur, h, onDone });
+}
+function updateTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const w = tweens[i]; w.t += dt;
+    if (w.t < 0) { w.it.mesh.visible = false; continue; }
+    w.it.mesh.visible = true;
+    const k = Math.min(1, w.t / w.dur), to = w.toFn();
+    w.it.mesh.position.lerpVectors(w.from, to, k); w.it.mesh.position.y += Math.sin(PI * k) * w.h;
+    w.it.mesh.rotation.y += dt * 6;
+    if (k >= 1) { tweens.splice(i, 1); w.it.flying = false; w.it.mesh.position.copy(to); if (w.onDone) w.onDone(); }
+  }
+}
+function pop(obj, dur = 0.5) { obj.scale.setScalar(0.001); obj.visible = true; pops.push({ obj, t: 0, dur }); }
+function updatePops(dt) {
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i]; p.t += dt; const k = Math.min(1, p.t / p.dur), c1 = 2.2, c3 = c1 + 1;
+    p.obj.scale.setScalar(Math.max(0.001, 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2)));
+    if (k >= 1) { p.obj.scale.setScalar(1); pops.splice(i, 1); }
+  }
+}
+// particles: puffs, splashes, ripples, coins
+const PUFF_GEO = new THREE.IcosahedronGeometry(0.25, 0), DROP_GEO = new THREE.TetrahedronGeometry(0.08), RING_GEO = new THREE.RingGeometry(0.35, 0.45, 18);
+function particle(kind, pos, vel, life, color = '#ffffff', size = 1) {
+  let p = fx.pool.find(q => !q.alive && q.kind === kind);
+  if (!p) {
+    const geo = kind === 'puff' ? PUFF_GEO : kind === 'ring' ? RING_GEO : kind === 'gfish' ? ITEM_GEO.fish[1] : DROP_GEO;
+    const m = kind === 'gfish' ? VMAT : new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false });
+    p = { kind, mesh: new THREE.Mesh(geo, m), alive: false }; if (kind === 'ring') p.mesh.rotation.x = -PI / 2;
+    fx.pool.push(p); world.add(p.mesh);
+  }
+  p.alive = true; p.mesh.visible = true; p.mesh.position.copy(pos); p.vel = vel.clone(); p.life = 0; p.max = life; p.size = size;
+  if (p.mesh.material !== VMAT) { p.mesh.material.color.set(color); p.mesh.material.opacity = 1; }
+  return p;
+}
+function updateParticles(dt) {
+  for (const p of fx.pool) {
+    if (!p.alive) continue; p.life += dt; const k = p.life / p.max;
+    if (k >= 1) { p.alive = false; p.mesh.visible = false; continue; }
+    p.mesh.position.addScaledVector(p.vel, dt);
+    if (p.kind === 'drop' || p.kind === 'gfish') p.vel.y -= 14 * dt;
+    if (p.kind === 'puff') { p.mesh.scale.setScalar(p.size * (0.6 + k * 1.4)); p.mesh.material.opacity = 0.9 * (1 - k); }
+    if (p.kind === 'ring') { p.mesh.scale.setScalar(p.size * (0.4 + k * 2.2)); p.mesh.material.opacity = 0.8 * (1 - k); }
+    if (p.kind === 'drop') p.mesh.material.opacity = 1 - k * k;
+    if (p.kind === 'gfish') { p.mesh.rotation.z = Math.atan2(p.vel.y, 3) ; }
+  }
+}
+function puffs(pos, n = 5, color = '#ffffff', size = 1) {
+  for (let i = 0; i < n; i++) particle('puff', pos, new V3(rr(-1, 1), rr(0.6, 1.8), rr(-1, 1)), rr(0.4, 0.7), color, size);
+}
+function splash(pos) {
+  for (let i = 0; i < 10; i++) particle('drop', pos, new V3(rr(-1.5, 1.5), rr(3, 6), rr(-1.5, 1.5)), 0.6, '#ffffff');
+  particle('ring', pos, new V3(), 0.7, '#ffffff', 1.3);
+}
+
+// ---- Layout --------------------------------------------------------------------------------
+const Z1 = { x0: -9.7, x1: 9.6, z0: -8.8, z1: 8.6 }, Z2 = { x0: 10.4, x1: 25.7, z0: -8.8, z1: 8.6 }, GATE = { x0: 9.0, x1: 11.0, z0: -1.6, z1: 1.6 };
+const inRect = (r, x, z) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
+function walkable(x, z) { return inRect(Z1, x, z) || (state.gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z))); }
+const inTile = (p, t, h = 0.85) => Math.abs(p.x - t.x) < h && Math.abs(p.z - t.z) < h;
+const UNLOCKS = [
+  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -5, z: -8, req: [], focus: [-7, -8] },
+  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: -1, z: -8, req: ['fisher1'], focus: [-3, -8] },
+  { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 6.6, z: 4.6, req: ['fisher1'] },
+  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 3, z: -8, req: ['fisher2'], focus: [1, -8] },
+  { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -2, z: 4.6, req: ['fisher3'], focus: [-3, 2.6] },
+  { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 6.6, z: 7.0, req: ['fisher3'] },
+  { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 8.4, z: 0, req: ['conveyor'], focus: [17.5, -1.5] },
+  { id: 'pot2', kind: 'upgrade', label: 'SECOND POT', price: 'price_pot2', x: 5.8, z: -4.4, req: ['conveyor'], focus: [4.3, -2] },
+  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 16.5, z: -8, req: ['gate'], focus: [14.5, -8] },
+];
+
+// ---- Tiles drawn on the ground ----------------------------------------------------------------
+const STAND = canvasTex(128, 128, g => {
+  g.fillStyle = 'rgba(255,255,255,0.16)'; rrect(g, 8, 8, 112, 112, 20); g.fill();
+  g.lineWidth = 8; g.strokeStyle = 'rgba(255,255,255,0.95)'; g.stroke();
+}).t;
+const STAND_MAT = new THREE.MeshBasicMaterial({ map: STAND, transparent: true, depthWrite: false });
+function groundPlane(parent, x, z, size, material, y = 0.03) {
+  const m = new THREE.Mesh(PLANE, material); m.rotation.order = 'YXZ'; m.rotation.set(-PI / 2, PI / 4, 0);
+  m.position.set(x, y, z); m.scale.setScalar(size); m.renderOrder = 1; parent.add(m); return m;
+}
+function standTile(x, z) { return groundPlane(world, x, z, 1.7, STAND_MAT); }
+function drawIcon(g, kind, cx, cy, s, col) {
+  g.fillStyle = col; g.strokeStyle = col; g.lineWidth = s * 0.12; g.lineJoin = 'round'; g.lineCap = 'round';
+  if (kind === 'hire') { // person bust
+    g.beginPath(); g.arc(cx, cy - s * 0.18, s * 0.22, 0, 2 * PI); g.fill();
+    g.beginPath(); g.moveTo(cx - s * 0.42, cy + s * 0.45); g.quadraticCurveTo(cx - s * 0.4, cy + s * 0.05, cx, cy + s * 0.07);
+    g.quadraticCurveTo(cx + s * 0.4, cy + s * 0.05, cx + s * 0.42, cy + s * 0.45); g.closePath(); g.fill();
+  } else if (kind === 'upgrade') { // fist
+    rrect(g, cx - s * 0.36, cy - s * 0.2, s * 0.72, s * 0.5, s * 0.14); g.fill();
+    g.strokeStyle = 'rgba(52,36,30,0.9)'; g.lineWidth = s * 0.05;
+    for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(cx - s * 0.36 + i * s * 0.18, cy - s * 0.2); g.lineTo(cx - s * 0.36 + i * s * 0.18, cy + s * 0.02); g.stroke(); }
+    g.fillStyle = col; rrect(g, cx - s * 0.2, cy + s * 0.25, s * 0.4, s * 0.28, s * 0.06); g.fill();
+    g.beginPath(); g.ellipse(cx - s * 0.36, cy + s * 0.12, s * 0.12, s * 0.16, -0.5, 0, 2 * PI); g.fill();
+  } else { // padlock
+    g.beginPath(); g.arc(cx, cy - s * 0.12, s * 0.22, PI, 0); g.stroke();
+    g.beginPath(); g.moveTo(cx - s * 0.22, cy - s * 0.12); g.lineTo(cx - s * 0.22, cy); g.moveTo(cx + s * 0.22, cy - s * 0.12); g.lineTo(cx + s * 0.22, cy); g.stroke();
+    rrect(g, cx - s * 0.34, cy, s * 0.68, s * 0.5, s * 0.08); g.fill();
+    g.fillStyle = 'rgba(52,36,30,0.95)'; g.beginPath(); g.arc(cx, cy + s * 0.2, s * 0.07, 0, 2 * PI); g.fill(); g.fillRect(cx - s * 0.03, cy + s * 0.2, s * 0.06, s * 0.16);
+  }
+}
+function drawCoin(g, cx, cy, r) {
+  g.fillStyle = '#c98f17'; g.beginPath(); g.arc(cx, cy, r, 0, 2 * PI); g.fill();
+  g.fillStyle = '#f7cf47'; g.beginPath(); g.arc(cx, cy, r * 0.8, 0, 2 * PI); g.fill();
+  g.fillStyle = '#c98f17'; g.fillRect(cx - r * 0.28, cy - r * 0.28, r * 0.56, r * 0.56);
+  g.fillStyle = '#fff3b0'; g.fillRect(cx - r * 0.55, cy - r * 0.6, r * 0.22, r * 0.12);
+}
+function drawPriceTile(t) {
+  const g = t.tex.g, remaining = Math.max(0, tune[t.def.price] - t.paid);
+  g.clearRect(0, 0, 256, 256);
+  g.fillStyle = t.flash > 0 ? '#fff4b8' : 'rgba(52,36,30,0.92)'; rrect(g, 10, 10, 236, 236, 34); g.fill();
+  g.lineWidth = 10; g.strokeStyle = t.def.kind === 'zone' ? '#ffd34d' : '#ffffff'; g.stroke();
+  const frac = 1 - remaining / tune[t.def.price];
+  if (frac > 0) { g.save(); rrect(g, 10, 10, 236, 236, 34); g.clip(); g.fillStyle = 'rgba(108,195,90,0.35)'; g.fillRect(10, 246 - 236 * frac, 236, 236 * frac); g.restore(); }
+  drawIcon(g, t.def.kind, 128, 74, 92, t.def.kind === 'zone' ? '#ffd34d' : '#ffffff');
+  g.fillStyle = '#ffe9c4'; g.font = `bold 26px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.def.label, 128, 146);
+  g.font = `bold 52px ${FONT}`; const s = fmt(remaining), w = g.measureText(s).width;
+  drawCoin(g, 128 - w / 2 - 6, 202, 20); g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.fillText(s, 128 - w / 2 + 22, 204);
+  t.tex.t.needsUpdate = true; t.shown = remaining;
+}
+const BUBBLES = {};
+function bubbleTex(dish, n) {
+  const key = dish + n; if (BUBBLES[key]) return BUBBLES[key];
+  return (BUBBLES[key] = canvasTex(128, 128, g => {
+    g.fillStyle = '#ffffff'; rrect(g, 10, 8, 108, 90, 26); g.fill();
+    g.beginPath(); g.moveTo(54, 96); g.lineTo(64, 120); g.lineTo(76, 96); g.fill();
+    if (dish === 'bowl') {
+      g.fillStyle = '#3d7fc4'; g.beginPath(); g.ellipse(52, 46, 30, 9, 0, 0, 2 * PI); g.fill();
+      g.fillStyle = '#f0a040'; g.beginPath(); g.ellipse(52, 46, 25, 6, 0, 0, 2 * PI); g.fill();
+      g.fillStyle = '#e9e4d6'; g.beginPath(); g.moveTo(22, 48); g.quadraticCurveTo(52, 92, 82, 48); g.fill();
+    } else {
+      g.fillStyle = '#a96b3a'; g.fillRect(18, 60, 70, 12);
+      for (let i = 0; i < 3; i++) { g.fillStyle = '#fbfaf3'; g.fillRect(22 + i * 22, 44, 18, 16); g.fillStyle = '#ff8a5c'; g.fillRect(20 + i * 22, 38, 22, 8); }
+    }
+    g.fillStyle = '#4a2e20'; g.font = `bold 30px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('x' + n, 104, 52);
+  }));
+}
+
+// ---- Building the camp ------------------------------------------------------------------------
+function buildEnvironment() {
+  const deckCols = ['#e8964a', '#df8a3e', '#ef9f55', '#e48f45'];
+  for (const [x0, x1, zoneTag] of [[-11, 10, 1], [10, 26.6, 2]]) {
+    for (let i = 0; i < 19; i++) {
+      const z = -9.5 + i + 0.5;
+      add(world, G.box, deckCols[(i + zoneTag) % 4], (x0 + x1) / 2, -0.15, z, 0, 0, 0, x1 - x0, 0.3, 0.97);
+    }
+  }
+  add(world, G.box, '#a85f2a', 7.8, -0.16, -9.5, 0, 0, 0, 37.6, 0.32, 0.12); // deck lip
+  for (let x = -10.5; x <= 26; x += 2.5) add(world, G.cyl6, '#7b4a26', x, -0.5, -9.6, 0, 0, 0, 0.28, 0.8, 0.28); // pier posts
+  add(world, G.box, '#86c95a', 10, -0.33, 25, 0, 0, 0, 220, 0.3, 69); // near grass
+  add(world, G.box, '#7cc052', 10, -0.33, -58, 0, 0, 0, 220, 0.3, 64); // far bank
+  fx.river = add(world, G.box, '#3d9be0', 10, -0.55, -17.8, 0, 0, 0, 220, 0.2, 16.6);
+  fx.streaks = [];
+  const streakMat = new THREE.MeshBasicMaterial({ color: '#e8f8ff', transparent: true, opacity: 0.8 });
+  fx.streakMat = streakMat;
+  for (let i = 0; i < 46; i++) {
+    const m = add(world, G.box, streakMat, rr(-40, 60), -0.44, rr(-25.5, -10.2), 0, 0, 0, rr(0.8, 2.2), 0.02, 0.08);
+    fx.streaks.push({ m, v: rr(0.8, 2.0) });
+  }
+  // round-post fences
+  const post = (x, z) => { add(world, G.cyl6, '#9c6634', x, 0.5, z, 0, 0, 0, 0.24, 1.0, 0.24); add(world, G.sph, '#b07440', x, 1.02, z, 0, 0, 0, 0.26); };
+  const rail = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), ang = Math.atan2(x1 - x0, z1 - z0);
+    for (const y of [0.45, 0.8]) add(world, G.box, '#b07440', (x0 + x1) / 2, y, (z0 + z1) / 2, 0, ang, 0, 0.1, 0.1, len);
+  };
+  const fence = (x0, z0, x1, z1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0))); for (let i = 0; i <= n; i++) post(x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n); rail(x0, z0, x1, z1); };
+  fence(-11, -9.3, -11, 0.3); fence(-11, 4.7, -11, 9.3); fence(-11, 9.3, 27, 9.3);
+  fence(10, -9.3, 10, -2.1); fence(10, 2.1, 10, 9.3); fence(27, -9.3, 27, 0.3); fence(27, 4.7, 27, 9.3);
+  // gate doors with a padlock sign
+  fx.doors = [];
+  for (const s of [-1, 1]) {
+    const hinge = new THREE.Group(); hinge.position.set(10, 0, s * 2.05); world.add(hinge);
+    for (let k = 0; k < 4; k++) add(hinge, G.box, '#8a5a2b', 0, 0.75, -s * (0.25 + k * 0.5), 0, 0, 0, 0.14, 1.5, 0.44);
+    add(hinge, G.box, '#6b4220', 0, 0.5, -s * 1.0, 0, 0, 0, 0.2, 0.12, 2.0); add(hinge, G.box, '#6b4220', 0, 1.2, -s * 1.0, 0, 0, 0, 0.2, 0.12, 2.0);
+    fx.doors.push({ hinge, s });
+  }
+  fx.lock = new THREE.Group(); fx.lock.position.set(10.15, 1.0, 0); world.add(fx.lock);
+  add(fx.lock, G.box, '#f2c230', 0, 0, 0, 0, 0, 0, 0.18, 0.5, 0.6); add(fx.lock, new THREE.TorusGeometry(0.2, 0.06, 5, 12, PI), '#c9c9cf', 0, 0.25, 0, 0, PI / 2, 0);
+  // locked yard shade
+  fx.cover = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 18.3, 0.03, -0.25, 0, 0, 0, 16.6, 0.02, 18.9);
+  // blossom trees
+  const tree = (x, z, s = 1) => {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); world.add(g);
+    add(g, G.cyl6, '#7a4a2a', 0, 1.0, 0, 0, 0, 0.08, 0.36, 2.0, 0.36);
+    add(g, G.ico, '#f7a8c6', 0, 2.5, 0, 0, 0, 0, 2.1); add(g, G.ico, '#f490b6', 0.7, 2.2, 0.3, 0.4, 0.2, 0, 1.4);
+    add(g, G.ico, '#fbc4d8', -0.6, 2.4, -0.2, 0.2, 0.6, 0, 1.5); add(g, G.ico, '#f7a8c6', 0.1, 3.2, -0.1, 0.3, 0.1, 0.2, 1.2);
+    blob(g, 1.4);
+  };
+  for (let i = 0; i < 14; i++) tree(rr(-20, 34), rr(11.5, 17), rr(0.85, 1.25));
+  for (let i = 0; i < 12; i++) tree(rr(-25, 45), rr(-30, -27), rr(1.0, 1.4));
+  tree(-14, -12, 1.2); tree(30, -11.5, 1.1);
+  // grass tufts and stones around the deck
+  for (let i = 0; i < 40; i++) add(world, G.cone4, i % 3 ? '#5fae45' : '#6fbd52', rr(-30, 45), -0.05, rr(9.8, 20), 0, rr(0, 3), 0, 0.3, rr(0.3, 0.6), 0.3);
+}
+function buildRods() {
+  rods = [];
+  const rodGeo = new THREE.CylinderGeometry(0.035, 0.06, 3.4, 5); rodGeo.translate(0, 1.7, 0);
+  const lineGeo = new THREE.CylinderGeometry(0.014, 0.014, 1, 4); lineGeo.translate(0, 0.5, 0);
+  const xs = [-7, -3, 1, 14.5];
+  xs.forEach((x, i) => {
+    const g = new THREE.Group(); world.add(g);
+    add(g, G.box, '#7a4a26', x, 0.3, -9.25, 0, 0, 0, 0.3, 0.6, 0.3); add(g, new THREE.TorusGeometry(0.18, 0.05, 4, 10), '#d9c08a', x, 0.35, -9.08, 0, 0, 0);
+    const pivot = new THREE.Group(); pivot.position.set(x, 0.5, -9.3); g.add(pivot);
+    const rodMesh = add(pivot, rodGeo, '#6fb544');
+    for (let k = 1; k < 4; k++) add(pivot, G.cyl, '#4f8a2f', 0, k * 0.85, 0, 0, 0, 0, 0.1, 0.05, 0.1);
+    const lineMat = new THREE.MeshLambertMaterial({ color: '#f4efe0', emissive: '#000000' });
+    const line = add(g, lineGeo, lineMat);
+    const bobber = new THREE.Group(); bobber.position.set(x, -0.42, -12.6); g.add(bobber);
+    add(bobber, G.sph, '#e23b2e', 0, 0.05, 0, 0, 0, 0, 0.2); add(bobber, G.sph, '#ffffff', 0, 0.16, 0, 0, 0, 0, 0.14);
+    const tile = new V3(x, 0, -8);
+    const tileMesh = standTile(x, -8);
+    rods.push({ i, x, g, pivot, rodMesh, line, lineMat, bobber, tile, tileMesh, prog: 0, owner: null, active: i < 3, sndT: 0, ripT: 0 });
+    if (i === 3) { g.visible = false; tileMesh.visible = false; }
+  });
+}
+function makePile(type, limit, slotFn) { const p = { type, limitKey: limit, items: [], slot: slotFn, extra: 0 };
+  p.limit = () => typeof p.limitKey === 'number' ? p.limitKey : tune[p.limitKey]; p.top = () => { const it = p.items[p.items.length - 1]; return it && !it.flying ? it : null; }; return p; }
+function buildKitchen() {
+  piles = {}; processors = [];
+  // chef's board
+  const k = new THREE.Group(); world.add(k);
+  add(k, G.box, '#9a6235', 0, 0.4, -2, 0, 0, 0, 1.9, 0.8, 1.0); add(k, G.box, '#c98d55', 0, 0.82, -2, 0, 0, 0, 2.0, 0.06, 1.1);
+  add(k, G.box, '#efe0bf', -0.35, 0.88, -2, 0, 0, 0, 0.8, 0.07, 0.6); add(k, G.box, '#d9dde2', -0.05, 0.93, -1.82, 0, 0.3, 0, 0.36, 0.02, 0.08);
+  blob(k, 1.2).position.set(0, 0.02, -2);
+  const pot = (x) => { const g = new THREE.Group(); g.position.set(x, 0, -2); world.add(g);
+    add(g, G.box, '#8f8a86', 0, 0.3, 0, 0, 0, 0, 1.2, 0.6, 1.2); add(g, G.cone4, '#ff9b2f', 0, 0.62, 0, 0, PI / 4, 0, 0.6, 0.3, 0.6);
+    add(g, new THREE.CylinderGeometry(0.55, 0.42, 0.62, 12), '#3a3a42', 0, 0.98, 0); add(g, G.cyl, '#f0a040', 0, 1.28, 0, 0, 0, 0, 0.96, 0.02, 0.96);
+    add(g, new THREE.TorusGeometry(0.55, 0.06, 4, 14), '#55555f', 0, 1.29, 0, PI / 2, 0, 0); blob(g, 1.0); return g; };
+  fx.pot1 = pot(2.3); fx.pot2 = pot(4.3); fx.pot2.visible = false;
+  const tbl = new THREE.Group(); world.add(tbl);
+  add(tbl, G.box, '#9a6235', 3.3, 0.22, 0, 0, 0, 0, 1.4, 0.44, 1.1); add(tbl, G.box, '#c98d55', 3.3, 0.46, 0, 0, 0, 0, 1.5, 0.05, 1.2);
+  standTile(0, -3.6); standTile(3.3, 1.35);
+  piles.board = makePile('fish', 'board_limit', i => new V3(0.55 + (i / 5 | 0) * 0.0, 0.88 + (i % 5) * ITEM_H.fish, -2.25 + (i / 5 | 0) * 0.42));
+  piles.pot = makePile('bowl', 'pot_limit', i => { const c = i / 7 | 0; return new V3(3.3 + ((c % 3) - 1) * 0.44, 0.5 + (i % 7) * ITEM_H.bowl, ((c / 3 | 0) - 0.5) * 0.5); });
+  fx.chef = makeChar('chef'); fx.chef.group.position.set(-1.45, 0, -2); fx.chef.group.rotation.y = PI / 2; world.add(fx.chef.group); blob(fx.chef.group, 0.5);
+  processors.push({ name: 'board', active: true, input: piles.board, out: piles.pot, drop: new V3(0, 0, -3.6), work: new V3(-0.35, 0.95, -2),
+    outFrom: () => new V3(2.3, 1.4, -2), timeKey: 'cook_time', perKey: 'bowls_per_fish', outType: 'bowl', chef: fx.chef, cur: null, t: 0, speed: () => state.pot2 ? 2 : 1 });
+  // zone 2: grill yard
+  fx.z2 = new THREE.Group(); world.add(fx.z2); fx.z2.visible = false;
+  const gr = new THREE.Group(); gr.position.set(17.5, 0, -2.4); fx.z2.add(gr);
+  add(gr, G.box, '#6e6a68', 0, 0.4, 0, 0, 0, 0, 1.8, 0.8, 1.1); add(gr, G.box, '#2a2626', 0, 0.84, 0, 0, 0, 0, 1.7, 0.08, 1.0);
+  add(gr, G.box, '#ff7a1f', 0, 0.86, 0, 0, 0, 0, 1.5, 0.04, 0.85);
+  for (let i = -3; i <= 3; i++) add(gr, G.box, '#4a4a52', i * 0.22, 0.92, 0, 0, 0, 0, 0.05, 0.05, 1.0);
+  add(gr, G.cyl6, '#55555f', 0.7, 1.4, -0.4, 0, 0, 0, 0.18, 1.2, 0.18); blob(gr, 1.2);
+  const st = new THREE.Group(); fx.z2.add(st);
+  add(st, G.box, '#9a6235', 19.9, 0.22, -0.6, 0, 0, 0, 1.4, 0.44, 1.1); add(st, G.box, '#c98d55', 19.9, 0.46, -0.6, 0, 0, 0, 1.5, 0.05, 1.2);
+  fx.z2tiles = [standTile(17.5, -4.1), standTile(19.9, 0.75)]; fx.z2tiles.forEach(t => (t.visible = false));
+  piles.grill = makePile('fish', 'board_limit', i => new V3(18.05, 0.9 + (i % 5) * ITEM_H.fish, -2.65 + (i / 5 | 0) * 0.4));
+  piles.sushi = makePile('plate', 'sushi_limit', i => { const c = i / 6 | 0; return new V3(19.9 + ((c % 3) - 1) * 0.5, 0.5 + (i % 6) * ITEM_H.plate, -0.6 + ((c / 3 | 0) - 0.5) * 0.45); });
+  fx.grillchef = makeChar('grillchef'); fx.grillchef.group.position.set(16.2, 0, -2.4); fx.grillchef.group.rotation.y = PI / 2; fx.z2.add(fx.grillchef.group); blob(fx.grillchef.group, 0.5);
+  processors.push({ name: 'grill', active: false, input: piles.grill, out: piles.sushi, drop: new V3(17.5, 0, -4.1), work: new V3(17.3, 1.0, -2.4),
+    outFrom: () => new V3(17.5, 1.3, -2.4), timeKey: 'grill_time', perKey: 'plates_per_fish', outType: 'plate', chef: fx.grillchef, cur: null, t: 0, speed: () => 1 });
+}
+function buildCounters() {
+  counters = [];
+  const mk = (z2, cx, face, dish, priceKey, gold) => {
+    const g = new THREE.Group(); world.add(g);
+    add(g, G.box, '#8a5a2b', cx, 0.45, 2.5, 0, 0, 0, 0.9, 0.9, 4.2); add(g, G.box, '#c98d55', cx, 0.92, 2.5, 0, 0, 0, 1.05, 0.06, 4.4);
+    add(g, G.box, gold ? '#e1b23a' : '#cc3029', cx, 0.6, 2.5, 0, 0, 0, 0.92, 0.18, 4.22); // banner cloth
+    for (const z of [0.4, 4.6]) { add(g, G.cyl6, '#7a4a26', cx - face * 0.3, 1.4, z, 0, 0, 0, 0.14, 2.8, 0.14); }
+    add(g, G.box, gold ? '#e1b23a' : '#cc3029', cx - face * 0.3, 2.65, 2.5, 0, 0, 0, 0.08, 0.5, 4.3);
+    const drop = new V3(cx + face * 1.5, 0, 2.5); standTile(drop.x, drop.z);
+    const cashPos = new V3(cx + face * 1.8, 0, 6.5); standTile(cashPos.x, cashPos.z);
+    const pile = makePile(dish, 'counter_limit', i => { const c = i / 10 | 0; return new V3(cx, 0.95 + (i % 10) * ITEM_H[dish], 1.3 + c * 1.2); });
+    const cash = makePile('cash', 60, i => { const c = i / 10 | 0; return new V3(cashPos.x + ((c % 3) - 1) * 0.44, 0.04 + (i % 10) * ITEM_H.cash, cashPos.z + ((c / 3 | 0) - 0.5) * 0.3); });
+    // crowd: front-row slots first, then the endless block (decoration)
+    const rows = z2 ? 11 : 14, cols = 18, slotsN = 4, n = slotsN + rows * cols;
+    const inst = new THREE.InstancedMesh(SOLDIER_GEO[gold ? 1 : 0], VMAT, n); inst.frustumCulled = false; world.add(inst);
+    const fx0 = cx - face * 1.25, base = [];
+    const slots = [];
+    for (let s = 0; s < slotsN; s++) { const b = new V3(fx0, 0, 1.0 + s * 1.0); base.push({ p: b, ph: rng() * 6 });
+      const bub = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex(dish, 1).t, depthTest: false, fog: false })); bub.scale.set(1.25, 1.25, 1); bub.renderOrder = 5; world.add(bub);
+      slots.push({ i: s, want: 0, phase: 'in', t: 0, d: 1.2, bub }); }
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) base.push({ p: new V3(fx0 - face * (1.2 + r * 1.0 + rr(-0.15, 0.15)), 0, -8.5 + c * 1.0 + rr(-0.2, 0.2)), ph: rng() * 6 });
+    const counter = { dish, priceKey, gold, face, pile, cash, drop, cashPos, inst, base, slots, cd: 0, rr: 0, active: !z2, zone: z2 ? 2 : 1 };
+    slots.forEach(s => { s.want = Math.floor(rr(tune.want_min, tune.want_max + 0.999)); });
+    counters.push(counter);
+  };
+  mk(false, -10.4, 1, 'bowl', 'bowl_price', false);
+  mk(true, 26.4, -1, 'plate', 'plate_price', true);
+}
+function buildBelt() {
+  belt = { on: false, items: [], cd: 0, x0: 3.3, x1: -9.6, z: 2.6, y: 0.5 };
+  const g = new THREE.Group(); world.add(g); g.visible = false; belt.g = g;
+  const bt = canvasTex(64, 32, x => { x.fillStyle = '#3f3d44'; x.fillRect(0, 0, 64, 32); x.fillStyle = '#5c5a63'; x.fillRect(0, 0, 14, 32); x.fillRect(32, 0, 14, 32); });
+  bt.t.wrapS = THREE.RepeatWrapping; bt.t.repeat.set(16, 1); belt.tex = bt.t;
+  const len = belt.x0 - belt.x1;
+  add(g, new THREE.BoxGeometry(len, 0.08, 0.7), new THREE.MeshLambertMaterial({ map: bt.t }), (belt.x0 + belt.x1) / 2, 0.44, belt.z);
+  for (const s of [-1, 1]) add(g, G.box, '#c7c3b8', (belt.x0 + belt.x1) / 2, 0.47, belt.z + s * 0.4, 0, 0, 0, len, 0.12, 0.08);
+  for (let x = belt.x1 + 0.4; x < belt.x0; x += 1.6) add(g, G.box, '#55555f', x, 0.2, belt.z, 0, 0, 0, 0.12, 0.4, 0.6);
+}
+function buildWorkersAndPlayer() {
+  workers = [];
+  player = makeCarrier('player', -2, -4.5, true);
+}
+function makeCarrier(role, x, z, isPlayer) {
+  const ch = makeChar(role); world.add(ch.group); const sh = blob(world, 0.55);
+  const c = { ch, sh, pos: new V3(x, 0, z), vel: new V3(), facing: 0, stack: [], lean: new V3(), leanV: new V3(), cd: 0, isPlayer, mode: null };
+  c.cap = type => isPlayer ? (type === 'fish' ? tune.fish_cap + state.carry * tune.carry_fish_add : tune.dish_cap + state.carry * tune.carry_dish_add) : tune.worker_cap;
+  c.canTake = type => (c.stack.length === 0 || c.stack[0].type === type) && c.stack.length < c.cap(type);
+  c.top = () => { const it = c.stack[c.stack.length - 1]; return it && !it.flying ? it : null; };
+  c.slot = i => {
+    const h = i * ITEM_H[(c.stack[0] || { type: 'fish' }).type];
+    const sf = Math.sin(c.facing), cf = Math.cos(c.facing);
+    const p = new V3(c.pos.x - sf * 0.5, 0.48 + c.ch.body.position.y + h, c.pos.z - cf * 0.5);
+    const bend = h * 0.9 + h * h * 0.18;
+    p.x += c.lean.x * bend; p.z += c.lean.z * bend;
+    return p;
+  };
+  return c;
+}
+function updateCarrier(c, dt) {
+  const sp = Math.hypot(c.vel.x, c.vel.z);
+  if (sp > 0.1) { const want = Math.atan2(c.vel.x, c.vel.z); let d = want - c.facing; d = Math.atan2(Math.sin(d), Math.cos(d)); c.facing += d * Math.min(1, dt * 14); }
+  c.ch.group.position.copy(c.pos); c.ch.group.rotation.y = c.facing; c.sh.position.set(c.pos.x, 0.02, c.pos.z);
+  // the stack trails the motion and springs back
+  const tx = -c.vel.x * 0.03, tz = -c.vel.z * 0.03;
+  c.leanV.x += ((tx - c.lean.x) * 80 - c.leanV.x * 7) * dt; c.leanV.z += ((tz - c.lean.z) * 80 - c.leanV.z * 7) * dt;
+  c.lean.x += c.leanV.x * dt; c.lean.z += c.leanV.z * dt;
+  animChar(c.ch, sp, dt, c.mode || (c.stack.length ? 'carry' : null));
+  c.stack.forEach((it, i) => { if (!it.flying) { it.mesh.position.copy(c.slot(i)); it.mesh.rotation.set(0, c.facing, 0); } });
+}
+
+// ---- Tiles you pay into --------------------------------------------------------------------
+function buildTiles() {
+  tiles = UNLOCKS.map(def => {
+    const tex = canvasTex(256, 256, () => {});
+    const m = groundPlane(world, def.x, def.z, 1.9, new THREE.MeshBasicMaterial({ map: tex.t, transparent: true, depthWrite: false }), 0.04);
+    m.visible = false;
+    const t = { def, mesh: m, tex, paid: 0, done: false, shown: -1, dwell: 0, cd: 0, flash: 0, hideT: -1, visibleNow: false };
+    return t;
+  });
+}
+function tileVisible(t) { return !t.done && t.def.req.every(id => state.done.includes(id)); }
+function unlock(t, instant) {
+  t.done = true; if (!state.done.includes(t.def.id)) state.done.push(t.def.id);
+  const id = t.def.id;
+  if (!instant) { t.flash = 0.35; t.hideT = 0.35; sfx.bell(); buzz(80); puffs(new V3(t.def.x, 0.4, t.def.z), 8, '#fff4b8', 1.2);
+    if (t.def.focus && tune.glide_time > 0) state.glide = { p: new V3(t.def.focus[0], 0, t.def.focus[1]), t: 0 };
+    events.push({ type: 'unlock', id }); }
+  else t.mesh.visible = false;
+  if (id.startsWith('fisher') || id === 'grillfisher') {
+    const ri = id === 'grillfisher' ? 3 : Number(id.slice(6)) - 1, rod = rods[ri];
+    const w = makeCarrier('fisher', t.def.x, t.def.z, false);
+    w.rod = rod; w.proc = ri === 3 ? processors[1] : processors[0]; w.state = 'toRod'; rod.owner = w; workers.push(w);
+    if (!instant) pop(w.ch.group);
+  }
+  if (id === 'carry') state.carry = 1;
+  if (id === 'speed') state.speedUp = true;
+  if (id === 'pot2') { state.pot2 = true; instant ? (fx.pot2.visible = true) : pop(fx.pot2); }
+  if (id === 'conveyor') { belt.on = true; instant ? (belt.g.visible = true) : pop(belt.g); }
+  if (id === 'gate') {
+    state.gateOpen = true; processors[1].active = true; counters[1].active = true; rods[3].active = true;
+    rods[3].tileMesh.visible = true; fx.z2tiles.forEach(m => (m.visible = true));
+    if (instant) { fx.z2.visible = true; rods[3].g.visible = true; state.gateAnim = 1; } else { pop(fx.z2, 0.7); pop(rods[3].g, 0.7); }
+  }
+  if (!instant) save();
+}
+function updateTiles(dt) {
+  for (const t of tiles) {
+    if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar(1.9 * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
+    const vis = tileVisible(t);
+    if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: v => t.mesh.scale.setScalar(1.9 * v) } }, t: 0, dur: 0.5 }); }
+    if (!vis) continue;
+    const price = tune[t.def.price], remaining = price - t.paid;
+    if (remaining <= 0) { unlock(t, false); continue; }
+    if (inTile(player.pos, t.def, 0.95) && !state.welcome) {
+      t.dwell += dt; t.cd -= dt;
+      if (t.dwell > tune.pay_dwell && state.wallet > 0 && t.cd <= 0) {
+        const amt = Math.min(state.wallet, remaining, Math.max(1, Math.ceil(price / tune.pay_chunks)));
+        state.wallet -= amt; t.paid += amt; t.cd = tune.pay_interval; state.payStreak++;
+        sfx.pay(state.payStreak);
+        const it = newItem('cash'); const from = player.pos.clone(); from.y = 1.2;
+        fly(it, from, () => new V3(t.def.x, 0.1, t.def.z), 0.22, 0.8, () => release(it));
+        if (t.paid >= price) unlock(t, false);
+      }
+    } else { t.dwell = 0; }
+    if (t.shown !== Math.max(0, price - t.paid)) drawPriceTile(t);
+  }
+}
+
+// ---- Simulation ---------------------------------------------------------------------------
+function catchFish(rod, c) {
+  const gold = state.goldLeft > 0, it = newItem('fish', gold);
+  c.stack.push(it); const from = rod.bobber.position.clone(); from.y = 0;
+  fly(it, from, () => c.slot(c.stack.indexOf(it)), 0.45, 2.2);
+  splash(from);
+  if (c.isPlayer || c.pos.distanceTo(player.pos) < 12) sfx.splash();
+  if (c.isPlayer) buzz(25);
+}
+function updateRods(dt) {
+  for (const rod of rods) {
+    if (!rod.active) continue;
+    let occ = null;
+    if (rod.owner) { const w = rod.owner; if (w.state === 'fish' && inTile(w.pos, rod.tile, 0.3) && w.canTake('fish')) occ = w; }
+    else if (inTile(player.pos, rod.tile) && player.canTake('fish') && !state.welcome) occ = player;
+    if (occ) {
+      occ.mode = 'pull';
+      rod.prog += dt / tune.fish_time;
+      rod.ripT -= dt; if (rod.ripT <= 0 && rod.prog > 0.25) { rod.ripT = 0.35; particle('ring', new V3(rod.x, -0.4, -12.6), new V3(), 0.8, state.goldLeft > 0 ? '#ffe27a' : '#ffffff', 0.8); }
+      if (occ === player && rod.prog > 0.35) { rod.sndT -= dt; if (rod.sndT <= 0) { rod.sndT = 0.14; sfx.tension(rod.prog); } }
+      if (rod.prog >= 1) { rod.prog = 0; catchFish(rod, occ); }
+    } else rod.prog = Math.max(0, rod.prog - dt * 2);
+    // look: the rod bends, the line glows, the bobber dips
+    const p = rod.prog, wob = p > 0.5 ? Math.sin(state.t * 40) * 0.03 * p : 0;
+    rod.pivot.rotation.x = -1.05 - p * 0.35 + wob;
+    rod.bobber.position.y = -0.42 - (p > 0.3 ? 0.12 + Math.sin(state.t * 18) * 0.05 : Math.sin(state.t * 2 + rod.i) * 0.03);
+    const glow = p > 0.5;
+    rod.lineMat.color.set(glow ? (state.goldLeft > 0 ? '#ffd34d' : '#ffe14a') : '#f4efe0');
+    rod.lineMat.emissive.set(glow ? '#c99a00' : '#000000');
+    rod.g.updateMatrixWorld(true);
+    const tip = new V3(0, 3.4, 0).applyMatrix4(rod.pivot.matrixWorld), bob = rod.bobber.position.clone().add(new V3(0, 0.1, 0));
+    const dir = bob.clone().sub(tip), len = dir.length();
+    rod.line.position.copy(tip); rod.line.scale.set(1, len, 1);
+    rod.line.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir.normalize());
+  }
+}
+function updateProcessors(dt) {
+  for (const pr of processors) {
+    if (!pr.active) continue;
+    if (!pr.cur) {
+      const f = pr.input.top(), per = tune[pr.perKey];
+      if (f && pr.out.items.length + per <= pr.out.limit()) {
+        pr.input.items.pop(); pr.cur = f; fly(f, f.mesh.position, () => pr.work, 0.18, 0.35); pr.t = 0; pr.chop = 0;
+      }
+      pr.chef.mode = null;
+    } else if (!pr.cur.flying) {
+      pr.t += dt * pr.speed(); pr.chef.mode = 'chop';
+      pr.chop -= dt; if (pr.chop <= 0) { pr.chop = 0.22; if (pr.cur.mesh.position.distanceTo(player.pos) < 9) sfx.chop(); }
+      pr.cur.mesh.scale.setScalar(Math.max(0.3, 1 - pr.t / tune[pr.timeKey] * 0.6));
+      if (pr.t >= tune[pr.timeKey]) {
+        const gold = pr.cur.gold; release(pr.cur); pr.cur = null;
+        const from = pr.outFrom(); puffs(from, 4, '#ffffff', 1);
+        if (from.distanceTo(player.pos) < 10) sfx.puff();
+        for (let k = 0; k < tune[pr.perKey]; k++) {
+          const it = newItem(pr.outType, gold); pr.out.items.push(it); const idx = pr.out.items.length - 1;
+          fly(it, from, () => pr.out.slot(pr.out.items.indexOf(it) >= 0 ? pr.out.items.indexOf(it) : idx), 0.35, 1.0, null, k * 0.09);
+        }
+      }
+    }
+    animChar(pr.chef, 0, dt, pr.chef.mode);
+  }
+}
+function updateCounters(dt) {
+  for (const c of counters) {
+    const face = c.face;
+    // front-row soldiers step back when full and the next one steps up
+    for (const s of c.slots) {
+      if (s.phase === 'out') { s.d += dt * 3.4; if (s.d >= 1.2) { s.phase = 'in'; s.want = Math.floor(rr(tune.want_min, tune.want_max + 0.999)); } }
+      else if (s.phase === 'in') { s.d -= dt * 3.4; if (s.d <= 0) { s.d = 0; s.phase = 'ready'; } }
+      const b = c.base[s.i].p;
+      s.bub.position.set(b.x - face * s.d, 2.7 + Math.sin(state.t * 3 + s.i) * 0.06, b.z);
+      s.bub.visible = c.active && s.phase === 'ready' && s.want > 0;
+      if (s.bub.visible && s.shownWant !== s.want) { s.bub.material.map = bubbleTex(c.dish, s.want).t; s.shownWant = s.want; }
+    }
+    if (!c.active) continue;
+    c.cd -= dt;
+    if (c.cd <= 0) {
+      const top = c.pile.top();
+      if (top) {
+        let s = null;
+        for (let k = 0; k < c.slots.length; k++) { const q = c.slots[(c.rr + k) % c.slots.length]; if (q.phase === 'ready' && q.want > 0) { s = q; c.rr = (c.rr + k + 1) % c.slots.length; break; } }
+        if (s) {
+          c.cd = 1 / tune.eat_rate; c.pile.items.pop(); s.want--;
+          const head = c.base[s.i].p.clone(); head.y = 1.3; const slot = s;
+          fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
+            release(top); puffs(head, 3, '#ffffff', 0.7);
+            const value = tune[c.priceKey] * (top.gold ? tune.golden_mult : 1);
+            state.earned += value; if (c.zone === 1 && belt.on) state.autoWin += value;
+            const cash = newItem('cash'); cash.value = value;
+            const from = head.clone(); from.x += face * 0.6;
+            if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
+            else { c.cash.extra += value; fly(cash, from, () => c.cashPos.clone(), 0.5, 1.5, () => release(cash)); }
+            floats.push({ p: head.clone().add(new V3(0, 0.8, 0)), txt: '+' + value, t: 0, col: top.gold ? '#ffe27a' : '#ffffff' });
+            if (slot.want <= 0) { slot.phase = 'out'; if (head.distanceTo(player.pos) < 14) sfx.cheer(); }
+            if (c.zone === 2 && !state.goalDone) { state.goalDone = true; state.goalTimer = 1.4; events.push({ type: 'goal' }); save(); }
+          });
+        }
+      }
+    }
+  }
+}
+function updateCrowds() {
+  const o = fx.dummy;
+  for (const c of counters) {
+    for (let i = 0; i < c.base.length; i++) {
+      const b = c.base[i]; let x = b.p.x, bob;
+      if (i < c.slots.length) { const s = c.slots[i]; x -= c.face * s.d; bob = s.phase === 'ready' && s.want > 0 ? Math.abs(Math.sin(state.t * 7 + b.ph)) * 0.12 : Math.abs(Math.sin(state.t * 9)) * 0.08; }
+      else bob = Math.abs(Math.sin(state.t * 3 + b.ph)) * 0.05;
+      o.position.set(x, bob, b.p.z); o.rotation.set(0, c.face > 0 ? PI / 2 : -PI / 2, 0); o.updateMatrix();
+      c.inst.setMatrixAt(i, o.matrix);
+    }
+    c.inst.instanceMatrix.needsUpdate = true;
+  }
+}
+function updateBelt(dt) {
+  if (!belt.on) return;
+  belt.tex.offset.x += dt * tune.belt_speed / (belt.x0 - belt.x1) * 16;
+  belt.cd -= dt;
+  const top = piles.pot.top();
+  if (belt.cd <= 0 && top && belt.items.length < 24) {
+    belt.cd = tune.belt_interval; piles.pot.items.pop();
+    const it = top; fly(it, it.mesh.position, () => new V3(belt.x0, belt.y, belt.z), 0.3, 0.8, () => { it.bx = belt.x0; belt.items.push(it); });
+  }
+  const cp = counters[0].pile;
+  for (let i = 0; i < belt.items.length; i++) {
+    const it = belt.items[i], ahead = belt.items[i - 1];
+    let nx = it.bx - tune.belt_speed * dt;
+    if (ahead) nx = Math.max(nx, ahead.bx + 0.42);
+    nx = Math.max(nx, belt.x1);
+    it.bx = nx; it.mesh.position.set(it.bx, belt.y, belt.z); it.mesh.rotation.y = 0;
+  }
+  const first = belt.items[0];
+  if (first && first.bx <= belt.x1 + 0.01 && cp.items.length < cp.limit()) {
+    belt.items.shift(); cp.items.push(first);
+    fly(first, first.mesh.position, () => cp.slot(cp.items.indexOf(first)), 0.25, 0.6);
+  }
+}
+function moveTo(c, target, dt, speed) {
+  const dx = target.x - c.pos.x, dz = target.z - c.pos.z, d = Math.hypot(dx, dz);
+  if (d < 0.06) { c.vel.set(0, 0, 0); return true; }
+  const s = Math.min(speed, d / dt); c.vel.set(dx / d * s, 0, dz / d * s); c.pos.addScaledVector(c.vel, dt); return false;
+}
+function updateWorkers(dt) {
+  for (const w of workers) {
+    w.mode = null; w.cd -= dt;
+    if (w.state === 'toRod') { if (moveTo(w, w.rod.tile, dt, tune.worker_speed)) w.state = 'fish'; }
+    else if (w.state === 'fish') { w.vel.set(0, 0, 0); if (!w.canTake('fish') && !w.stack.some(i => i.flying)) w.state = 'toDrop'; }
+    else if (w.state === 'toDrop') { if (moveTo(w, w.proc.drop, dt, tune.worker_speed)) w.state = 'drop'; }
+    else if (w.state === 'drop') {
+      w.vel.set(0, 0, 0);
+      const top = w.top(), pile = w.proc.input;
+      if (top && w.cd <= 0 && pile.items.length < pile.limit()) { w.cd = tune.pickup_interval * 2; giveTo(w, pile, top); }
+      if (!w.stack.length) w.state = 'toRod';
+    }
+  }
+}
+function giveTo(c, pile, it) {
+  c.stack.pop(); pile.items.push(it);
+  fly(it, it.mesh.position, () => pile.slot(pile.items.indexOf(it)), 0.25, 0.9);
+}
+function takeFrom(c, pile) {
+  const it = pile.items.pop(); c.stack.push(it);
+  fly(it, it.mesh.position, () => c.slot(c.stack.indexOf(it)), 0.22, 0.7);
+}
+function updatePlayer(dt) {
+  let ix = 0, iy = 0;
+  if (!state.welcome) {
+    if (down.has('KeyA') || down.has('ArrowLeft')) ix -= 1; if (down.has('KeyD') || down.has('ArrowRight')) ix += 1;
+    if (down.has('KeyW') || down.has('ArrowUp')) iy += 1; if (down.has('KeyS') || down.has('ArrowDown')) iy -= 1;
+    if (joy.active) { const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy); if (d > 6) { const m = Math.min(1, d / 60); ix = dx / d * m; iy = -dy / d * m; } }
+  }
+  const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
+  // screen right = (1,0,-1)/sqrt2, screen up = (-1,0,-1)/sqrt2 for the 45-degree camera
+  const s2 = Math.SQRT1_2, speed = tune.run_speed * (state.speedUp ? tune.speed_mult : 1);
+  const tx = (ix - iy) * s2 * speed, tz = (-ix - iy) * s2 * speed, k = Math.min(1, dt * 16);
+  player.vel.x += (tx - player.vel.x) * k; player.vel.z += (tz - player.vel.z) * k;
+  const nx = player.pos.x + player.vel.x * dt, nz = player.pos.z + player.vel.z * dt;
+  if (walkable(nx, nz)) { player.pos.x = nx; player.pos.z = nz; }
+  else if (walkable(nx, player.pos.z)) { player.pos.x = nx; player.vel.z = 0; }
+  else if (walkable(player.pos.x, nz)) { player.pos.z = nz; player.vel.x = 0; }
+  else player.vel.set(0, 0, 0);
+  for (const o of fx.obstacles()) { // push out of tables and stoves
+    const dx = player.pos.x - o[0], dz = player.pos.z - o[1], d = Math.hypot(dx, dz);
+    if (d < o[2] && d > 0.0001) { player.pos.x = o[0] + dx / d * o[2]; player.pos.z = o[1] + dz / d * o[2]; }
+  }
+  player.mode = null;
+  // interactions: everything triggers by standing on a tile
+  player.cd -= dt; state.streakT -= dt; if (state.streakT <= 0) state.streak = 0;
+  state.payT -= dt; if (!tiles.some(t => t.dwell > 0)) state.payStreak = 0;
+  if (state.welcome || player.cd > 0) return;
+  const top = player.top(), P = player.pos;
+  for (const pr of processors) {
+    if (pr.active && top && top.type === 'fish' && inTile(P, pr.drop) && pr.input.items.length < pr.input.limit()) {
+      giveTo(player, pr.input, top); player.cd = tune.pickup_interval * 1.4; sfx.drop(state.streak++); state.streakT = 0.5; return;
+    }
+  }
+  const pick = [[piles.pot, new V3(3.3, 0, 1.35), true], [piles.sushi, new V3(19.9, 0, 0.75), state.gateOpen]];
+  for (const [pile, at, ok] of pick) {
+    if (ok && inTile(P, at) && pile.top() && player.canTake(pile.type)) { takeFrom(player, pile); player.cd = tune.pickup_interval; sfx.clack(state.streak++); state.streakT = 0.5; return; }
+  }
+  for (const c of counters) {
+    if (!c.active) continue;
+    if (top && top.type === c.dish && inTile(P, c.drop) && c.pile.items.length < c.pile.limit()) {
+      giveTo(player, c.pile, top); player.cd = tune.pickup_interval; sfx.drop(state.streak++); state.streakT = 0.5; return;
+    }
+    if (inTile(P, c.cashPos) && c.cash.top()) {
+      const it = c.cash.items.pop(); const v = it.value + c.cash.extra; c.cash.extra = 0;
+      fly(it, it.mesh.position, () => player.pos.clone().add(new V3(0, 1.1, 0)), 0.22, 1.2, () => { state.wallet += v; release(it); sfx.coin(state.coinStreak++); state.coinT = 0.6; });
+      player.cd = 0.025; return;
+    }
+  }
+}
+function updateGolden(dt) {
+  if (state.goldLeft > 0) {
+    state.goldLeft -= dt;
+    fx.gfT -= dt; if (fx.gfT <= 0) { fx.gfT = 0.5; particle('gfish', new V3(player.pos.x + rr(-8, 8), -0.4, rr(-20, -11)), new V3(rr(-1.5, 1.5), rr(4, 6), 0), 0.8); }
+    if (state.goldLeft <= 0) { state.goldNext = state.playTime + rr(tune.golden_min, tune.golden_max); }
+  } else if (state.playTime >= state.goldNext) { state.goldLeft = tune.golden_duration; sfx.golden(); buzz(60); events.push({ type: 'golden' }); }
+  fx.streakMat.color.set(state.goldLeft > 0 ? '#ffe27a' : '#e8f8ff');
+  for (const s of fx.streaks) { s.m.position.x += s.v * dt; if (s.m.position.x > 60) s.m.position.x = -40; }
+}
+function updateCamera(dt) {
+  let target = player.pos, k = tune.cam_lag;
+  if (state.glide) { state.glide.t += dt; if (state.glide.t < tune.glide_time * 0.72) { target = state.glide.p; k = 5; } else { k = 7; if (state.glide.t > tune.glide_time) state.glide = null; } }
+  fx.focus.x += (target.x - fx.focus.x) * Math.min(1, dt * k); fx.focus.z += (target.z - fx.focus.z) * Math.min(1, dt * k);
+  placeCamera();
+}
+function placeCamera() {
+  const p = tune.cam_pitch * PI / 180, d = tune.cam_distance, h = d * Math.cos(p);
+  camera.fov = tune.cam_fov; camera.updateProjectionMatrix();
+  camera.position.set(fx.focus.x + h * Math.SQRT1_2, d * Math.sin(p), fx.focus.z + h * Math.SQRT1_2);
+  camera.lookAt(fx.focus.x, 0.8, fx.focus.z);
+}
+function guideTarget() {
+  const top = player.stack[0];
+  const zone2 = player.pos.x > 10;
+  if (top && top.type === 'fish') return zone2 && state.gateOpen ? processors[1].drop : processors[0].drop;
+  if (top && top.type === 'bowl') return belt.on && !zone2 ? null : counters[0].drop;
+  if (top && top.type === 'plate') return counters[1].drop;
+  if (state.gateOpen && !state.goalDone) {
+    if (piles.sushi.top()) return new V3(19.9, 0, 0.75);
+    if (!rods[3].owner) return rods[3].tile;
+  }
+  for (const t of tiles) if (tileVisible(t) && t.hideT < 0 && state.wallet >= tune[t.def.price] - t.paid) return new V3(t.def.x, 0, t.def.z);
+  let best = null, bd = 1e9;
+  for (const c of counters) if (c.active && c.cash.items.length) { const d = c.cashPos.distanceTo(P0(player.pos)); if (d < bd) { bd = d; best = c.cashPos; } }
+  if (best) return best;
+  if (!belt.on && piles.pot.items.length) return new V3(3.3, 0, 1.35);
+  for (const r of rods) if (r.active && !r.owner && r.i < 3) return r.tile;
+  return null;
+}
+const P0 = p => new V3(p.x, 0, p.z);
+function updateGuide(dt) {
+  const show = (state.playTime < tune.guide_time || (state.gateOpen && !state.goalDone)) && scene === 'play' && !state.welcome;
+  const tgt = show ? guideTarget() : null;
+  const near = tgt && Math.hypot(tgt.x - player.pos.x, tgt.z - player.pos.z) < 1.0;
+  fx.arrow.visible = !!tgt && !near; fx.marker.visible = !!tgt;
+  if (tgt) {
+    const dx = tgt.x - player.pos.x, dz = tgt.z - player.pos.z, d = Math.hypot(dx, dz) || 1;
+    fx.arrow.position.set(player.pos.x + dx / d * 1.1, 0.06, player.pos.z + dz / d * 1.1);
+    fx.arrow.rotation.set(-PI / 2, Math.atan2(-dx, -dz), 0);
+    const sc = 1 + Math.sin(state.t * 8) * 0.08; fx.arrow.scale.set(sc, sc, sc);
+    fx.marker.position.set(tgt.x, 2.0 + Math.abs(Math.sin(state.t * 4)) * 0.4, tgt.z); fx.marker.rotation.y += dt * 3;
+  }
+}
+
+// ---- Save, offline income ------------------------------------------------------------------
+const SAVE_KEY = 'fishing-camp-save-v1';
+function save() {
+  try {
+    const paid = {}; for (const t of tiles) if (!t.done && t.paid) paid[t.def.id] = t.paid;
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ wallet: state.wallet, done: state.done, paid, at: Date.now(), rate: state.autoRate,
+      playTime: state.playTime, goalDone: state.goalDone, earned: state.earned, goldNext: state.goldNext }));
+  } catch (_) {}
+}
+function load() {
+  if (params.get('fresh') === '1') return;
+  let s = null; try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (_) {}
+  if (!s) return;
+  state.wallet = s.wallet | 0; state.playTime = s.playTime || 0; state.goalDone = !!s.goalDone; state.earned = s.earned || 0; state.autoRate = s.rate || 0;
+  state.goldNext = s.goldNext || state.goldNext;
+  for (const id of UNLOCKS.map(u => u.id)) if ((s.done || []).includes(id)) unlock(tiles.find(t => t.def.id === id), true);
+  for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
+  const away = Math.min(tune.offline_cap, Math.max(0, (Date.now() - (s.at || Date.now())) / 1000));
+  const earned = Math.floor(state.autoRate * away * tune.offline_factor);
+  if (earned > 0 && away > 30) state.welcome = { earned, away };
+}
+addEventListener('pagehide', () => { if (state) save(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && state) save(); });
+
+// ---- Scenes ----------------------------------------------------------------------------------
+function reset() {
+  seed = Number(params.get('seed')) || CONFIG.seed;
+  while (scene3.children.length) scene3.remove(scene3.children[0]);
+  tweens = []; pops = []; floats = []; for (const k in pools) pools[k].length = 0;
+  state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, pot2: false, gateOpen: false, gateAnim: 0,
+    goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
+    streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null };
+  world = new THREE.Group(); scene3.add(world);
+  scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
+  const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
+  const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-8, 20, 10); scene3.add(sun);
+  fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0 };
+  buildEnvironment(); buildRods(); buildKitchen(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
+  fx.obstacles = () => {
+    const o = [[0, -2, 1.1], [-1.45, -2, 0.5], [2.3, -2, 0.85], [3.3, 0, 0.8]];
+    if (state.pot2) o.push([4.3, -2, 0.85]);
+    if (state.gateOpen) o.push([17.5, -2.4, 1.1], [16.2, -2.4, 0.5], [19.9, -0.6, 0.8]);
+    return o;
+  };
+  const arrowShape = new THREE.Shape([[0, 0.62], [0.48, 0.05], [0.18, 0.05], [0.18, -0.5], [-0.18, -0.5], [-0.18, 0.05], [-0.48, 0.05]].map(p => new THREE.Vector2(p[0], p[1])));
+  fx.arrow = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), new THREE.MeshBasicMaterial({ color: '#fff27a', transparent: true, opacity: 0.95, depthWrite: false }));
+  fx.arrow.rotation.order = 'YXZ'; fx.arrow.renderOrder = 3; world.add(fx.arrow);
+  fx.marker = new THREE.Group(); world.add(fx.marker);
+  add(fx.marker, G.cone4, '#ffd34d', 0, 0, 0, PI, 0, 0, 0.5, 0.6, 0.5); add(fx.marker, G.box, '#ffd34d', 0, 0.5, 0, 0, 0, 0, 0.2, 0.5, 0.2);
+  load();
+  fx.focus.copy(P0(player.pos)); placeCamera();
+  updateCarrier(player, 0); updateCrowds(); updateRods(0);
+}
+function tick3D(dt) { // the camp keeps running under every overlay
+  state.t += dt;
+  updatePlayer(dt); updateWorkers(dt); updateRods(dt);
+  updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
+  updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
+  updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
+  // gate swings open
+  if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
+  for (const d of fx.doors) d.hinge.rotation.y = d.s * state.gateAnim * 1.7;
+  fx.lock.visible = !state.gateOpen; fx.cover.material.opacity = 0.42 * (1 - state.gateAnim); fx.cover.visible = state.gateAnim < 1;
+  // steam over working pots
+  fx.steamT = (fx.steamT || 0) - dt;
+  if (fx.steamT <= 0) { fx.steamT = 0.35; if (processors[0].cur) particle('puff', new V3(2.3 + rr(-0.2, 0.2), 1.4, -2), new V3(0, 1.2, 0), 1.0, '#ffffff', 0.7);
+    if (state.pot2 && processors[0].cur) particle('puff', new V3(4.3, 1.4, -2), new V3(0, 1.2, 0), 1.0, '#ffffff', 0.7);
+    if (processors[1].cur) particle('puff', new V3(17.5 + rr(-0.5, 0.5), 1.1, -2.4), new V3(0, 1.4, 0), 0.9, '#d8d4cf', 0.6); }
+  state.coinT -= dt; if (state.coinT <= 0) state.coinStreak = 0;
+  for (let i = floats.length - 1; i >= 0; i--) { floats[i].t += dt; floats[i].p.y += dt * 1.2; if (floats[i].t > 0.9) floats.splice(i, 1); }
+  // measured automated income, for offline earnings
+  state.autoT += dt; if (state.autoT >= 10) { const r = state.autoWin / state.autoT; state.autoRate = state.autoRate ? state.autoRate * 0.6 + r * 0.4 : r; state.autoWin = 0; state.autoT = 0; }
+  state.walletShown += (state.wallet - state.walletShown) * Math.min(1, dt * 12); if (Math.abs(state.wallet - state.walletShown) < 0.5) state.walletShown = state.wallet;
+  state.score = state.wallet;
+}
+function collectWelcome() {
+  const w = state.welcome; state.welcome = null; state.wallet += w.earned; sfx.bell(); buzz(60);
+  for (let i = 0; i < 14; i++) { const it = newItem('cash'); const from = player.pos.clone().add(new V3(rr(-3, 3), 6, rr(-3, 3)));
+    fly(it, from, () => player.pos.clone().add(new V3(0, 1.1, 0)), 0.5, 0.5, () => { release(it); sfx.coin(i); }, i * 0.04); }
+  save();
+}
+let figs = null;
+function buildFigures() {
+  const s = new THREE.Scene(); s.background = new THREE.Color('#cdeaf3');
+  s.add(new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9)); const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-4, 10, 8); s.add(sun);
+  const g = new THREE.Group(); s.add(g);
+  add(g, G.box, '#e8964a', 0, -0.15, 0.6, 0, 0, 0, 14, 0.3, 4.5);
+  const list = [];
+  const chars = [['player', 'Player (you)'], ['fisher', 'Fisher (hired)'], ['chef', 'Soup chef'], ['grillchef', 'Grill chef']];
+  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-5.4 + i * 1.8, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
+  [['Soldier', 0], ['Gold soldier', 1]].forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(1.8 + i * 2.0, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
+  [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {
+    const m = new THREE.Mesh(ITEM_GEO[t][gold], VMAT); m.position.set(-4.4 + i * 2.2, 0.02, 2.2); m.scale.setScalar(1.6); m.rotation.y = 0.5; g.add(m); list.push([name, m.position.clone()]); });
+  const cam = new THREE.PerspectiveCamera(34, W / H, 0.5, 100); cam.position.set(0, 6.5, 15); cam.lookAt(0, 0.9, 0.8);
+  figs = { s, cam, list };
+}
+function project(p, cam = camera) { const v = p.clone().project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H, v.z]; }
+
+function drawHud() {
+  // cash total, top-left
+  ctx.fillStyle = 'rgba(48,28,18,0.72)'; rrect(ctx, 18, 16, 236, 58, 29); ctx.fill();
+  drawCoin(ctx, 48, 45, 19); text(fmt(Math.round(state.walletShown)), 80, 46, 34, '#ffffff', 'left');
+  // settings button, top-right
+  ctx.save(); ctx.translate(GEAR.x, GEAR.y);
+  ctx.fillStyle = 'rgba(48,28,18,0.72)'; ctx.beginPath(); ctx.arc(0, 0, GEAR.r + 6, 0, 2 * PI); ctx.fill();
+  ctx.fillStyle = '#ffffff'; ctx.beginPath();
+  for (let i = 0; i < 16; i++) { const a = i / 16 * 2 * PI, r = i % 2 ? 14 : 19; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(48,28,18,1)'; ctx.beginPath(); ctx.arc(0, 0, 6, 0, 2 * PI); ctx.fill(); ctx.restore();
+  // money rising where it was made
+  for (const f of floats) { const [x, y, z] = project(f.p); if (z < 1) { ctx.globalAlpha = 1 - f.t / 0.9; text(f.txt, x, y, 22, f.col); ctx.globalAlpha = 1; } }
+  // golden school banner
+  if (state.goldLeft > 0) {
+    const w = 460; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, 18, w, 54, 27); ctx.fill();
+    ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
+    text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, 46, 28, '#ffe27a');
+  }
+  // floating joystick
+  if (joy.active) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(joy.x0, joy.y0, 60, 0, 2 * PI); ctx.stroke();
+    const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy), m = Math.min(1, 60 / (d || 1));
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(joy.x0 + dx * Math.min(1, m), joy.y0 + dy * Math.min(1, m), 26, 0, 2 * PI); ctx.fill();
+  }
+  if (state.welcome) {
+    panel(560, 250);
+    text('Welcome back!', W / 2, H / 2 - 70, 44, '#ffe27a');
+    const m = Math.floor(state.welcome.away / 60), h = Math.floor(m / 60);
+    text(`Your camp cooked while you were away (${h ? h + 'h ' : ''}${m % 60}m)`, W / 2, H / 2 - 18, 22, '#ffffff');
+    drawCoin(ctx, W / 2 - 80, H / 2 + 32, 20); text(fmt(state.welcome.earned), W / 2 - 50, H / 2 + 33, 40, '#ffffff', 'left');
+    text('Enter or tap to collect', W / 2, H / 2 + 88, 24, '#cfe9ff');
+  }
+}
+function panel(w, h) { ctx.fillStyle = 'rgba(48,28,18,0.86)'; rrect(ctx, W / 2 - w / 2, H / 2 - h / 2, w, h, 26); ctx.fill(); ctx.strokeStyle = '#ffe9c4'; ctx.lineWidth = 4; ctx.stroke(); }
+
+const scenes = {
+  figures: {
+    update(dt) { state.t += dt; },
+    draw() {
+      if (!figs) buildFigures();
+      renderer.render(figs.s, figs.cam); clearHud();
+      text('Fishing Camp: figures', W / 2, 40, 30, '#ffffff');
+      for (const [name, p] of figs.list) { const [x, y] = project(p.clone().add(new V3(0, -0.35, 0.6)), figs.cam); text(name, x, y + 14, 18, '#ffffff'); }
+    },
+  },
+  title: {
+    update(dt) {
+      fx.focus.x = -2 + Math.sin(state.t * 0.15) * 3; state.t += dt; updateCrowds(); updateParticles(dt);
+      for (const s of fx.streaks) { s.m.position.x += s.v * dt; if (s.m.position.x > 60) s.m.position.x = -40; }
+      placeCamera();
+      if (pressed('Enter') || pressed('Space') || tapped) { scene = 'play'; tapped = null; }
+    },
+    draw() {
+      renderer.render(scene3, camera); clearHud();
+      const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(30,18,10,0.15)'); gr.addColorStop(0.5, 'rgba(30,18,10,0.6)'); gr.addColorStop(1, 'rgba(30,18,10,0.15)');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+      text(TITLE, W / 2, H / 3 - 10, 84, '#ffe9a8');
+      text('Catch. Cook. Feed the army. Hire your way out of every job.', W / 2, H / 3 + 56, 24, '#ffffff');
+      CONTROLS.forEach((c, i) => text(c, W / 2, H / 2 + 50 + i * 36, 24, '#e8f4ff'));
+      text('Press Enter or tap to start', W / 2, H - 60, 30, '#ffffff');
+    },
+  },
+  play: {
+    update(dt) {
+      if (pressed('KeyP') || pressed('Escape') || (tapped && onGear(tapped.x, tapped.y))) { scene = 'pause'; tapped = null; joy.active = false; return; }
+      if (state.welcome && (pressed('Enter') || pressed('Space') || tapped)) collectWelcome();
+      tapped = null;
+      state.playTime += dt;
+      tick3D(dt);
+      if (state.goalTimer > 0) { state.goalTimer -= dt; if (state.goalTimer <= 0) { state.gained = 'The camp is running!'; scene = 'results'; joy.active = false; } }
+    },
+    draw() { renderer.render(scene3, camera); clearHud(); drawHud(); },
+  },
+  pause: {
+    update() {
+      if (pressed('KeyP') || pressed('Escape') || (tapped && onGear(tapped.x, tapped.y))) scene = 'play';
+      else if (pressed('KeyR')) { try { localStorage.removeItem(SAVE_KEY); } catch (_) {} reset(); scene = 'title'; }
+      tapped = null;
+    },
+    draw() {
+      scenes.play.draw(); ctx.fillStyle = 'rgba(20,12,8,0.45)'; ctx.fillRect(0, 0, W, H); panel(560, 300);
+      text('Paused', W / 2, H / 2 - 100, 48, '#ffe9a8');
+      text('P or the gear: resume', W / 2, H / 2 - 30, 26, '#ffffff');
+      text(`M: sound ${muted ? 'off' : 'on'}`, W / 2, H / 2 + 14, 26, '#ffffff');
+      text('R: reset the camp (erases the save)', W / 2, H / 2 + 58, 24, '#ffc9b0');
+      text('Progress saves after every unlock', W / 2, H / 2 + 108, 20, '#cfe9ff');
+    },
+  },
+  results: {
+    update(dt) {
+      tick3D(dt);
+      if (pressed('Enter') || pressed('Space') || tapped) { scene = 'play'; }
+      tapped = null;
+    },
+    draw() {
+      renderer.render(scene3, camera); clearHud(); drawHud(); panel(600, 330);
+      text(state.gained || 'The camp is running!', W / 2, H / 2 - 110, 46, '#ffe27a');
+      text('Grill yard open, first sushi sold', W / 2, H / 2 - 56, 24, '#ffffff');
+      const m = Math.floor(state.playTime / 60), s = Math.floor(state.playTime % 60);
+      text(`Time  ${m}:${String(s).padStart(2, '0')}`, W / 2, H / 2 - 8, 26, '#ffffff');
+      text(`Unlocks  ${state.done.length} of ${UNLOCKS.length}`, W / 2, H / 2 + 32, 26, '#ffffff');
+      text(`Coins earned  ${fmt(state.earned)}`, W / 2, H / 2 + 72, 26, '#ffffff');
+      text('Enter or tap: keep playing', W / 2, H / 2 + 128, 26, '#cfe9ff');
+    },
+  },
+};
+
+// ---- Loop: fixed step, frame time clamped ---------------------------------------------
+function step() {
+  if (pressed('KeyM')) { setMuted(!muted); hit.delete('KeyM'); }
+  scenes[scene].update(STEP); hit.clear();
+}
+let last, acc = 0, ALPHA = 1; // ALPHA: how far the frame is between the last two steps
+function tick() {
+  const now = clock.now();
+  acc += Math.min(now - last, 0.25); last = now; // a stall never fast-forwards the game
+  while (acc >= STEP) { step(); acc -= STEP; }
+  ALPHA = acc / STEP;
+  drawFrame();
+}
+function drawFrame() { scenes[scene].draw(); }
+function frame() { tick(); requestAnimationFrame(frame); }
+// A headless browser on a time budget runs timers but almost no animation frames: a timer
+// ticks when no frame has come for 100 ms on a visible page; a hidden tab stays paused.
+function timer() { if (document.visibilityState === 'visible' && clock.now() - last > 0.1) tick(); }
+
+// ---- What a check can read and drive (?manual=1 stops the loop; players never see it) ----
+window.game = {
+  get scene() { return scene; },
+  get state() { return state; },
+  press(code) { hit.add(code); },
+  hold(code, on) { on ? down.add(code) : down.delete(code); },
+  get events() { return events; }, // the loop steps; a check empties it
+  step(n = 1, draw = true, alpha = 1) {
+    for (let i = 0; i < n; i++) step();
+    if (draw) { ALPHA = alpha; drawFrame(); }
+  },
+};
+
+reset();
+scene = params.get('scene') || 'title';
+last = clock.now();
+if (params.get('manual') === '1') drawFrame();
+else { requestAnimationFrame(frame); setInterval(timer, 50); }
+</script>
+</body>
+</html>
