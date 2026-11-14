@@ -16,3 +16,9 @@
   tool: "esbuild 0.28.2, one plain script for play from a file"
   date: 2026-11-14
   ships: true
+- path: assets/icon.svg
+  origin: code
+  tool: "hand-written SVG"
+  model: claude-opus-5-5
+  date: 2026-11-14
+  ships: true

@@ -5,10 +5,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e8964a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fishing Camp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg">
 <title>Fishing Camp</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #1d3b2a; overflow: hidden; touch-action: none; }
+  html, body { margin: 0; height: 100%; background: #1d3b2a; overflow: hidden; touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   body { font-variant-numeric: tabular-nums; }
   canvas { display: block; position: absolute; }
   #game { z-index: 2; }
@@ -29,10 +37,12 @@
 const params = new URLSearchParams(location.search);
 const tune = new Proxy({}, { get: (_, k) => CONFIG[k].value }); // live: tune.speed is CONFIG.speed.value
 const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
-const W = 1280, H = 720;        // logical size of the HUD layer
+let W = 1280, H = 720;          // logical size of the HUD layer; fit() sets it from the window
 const FONT = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif';
 const TITLE = 'Fishing Camp';
-const CONTROLS = ['WASD / Arrows: move', 'or drag anywhere: joystick', 'Stand on a tile to act', 'P: pause   M: mute'];
+const CONTROLS = matchMedia('(pointer: coarse)').matches
+  ? ['Drag anywhere to move', 'Stand on a tile to act', 'Gear button: pause']
+  : ['WASD / Arrows: move', 'or drag anywhere: joystick', 'Stand on a tile to act', 'P: pause   M: mute'];
 const clock = window.GAME_CLOCK || { now: () => performance.now() / 1000 }; // a check may inject one
 const CHEAP = params.get('render') === 'cheap'; // a headless shot or check: 3D draws cheap; players never see it
 let seed;
@@ -52,24 +62,28 @@ const worldCanvas = document.getElementById('world');
 const renderer = new THREE.WebGLRenderer({ canvas: worldCanvas, antialias: !CHEAP });
 renderer.setPixelRatio(CHEAP ? 0.5 : Math.min(2, devicePixelRatio || 1));
 let viewScale = 1;
-function fit() { // letterboxed 16:9 at any window size
-  const k = Math.min(innerWidth / W, innerHeight / H); viewScale = k;
-  const cw = Math.round(W * k), ch = Math.round(H * k);
+// The view fills the window in any orientation. The HUD is laid out in logical units whose short
+// side is 720 (540 on touch screens, so phone text and buttons stay big enough to read and hit).
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+function fit() {
+  const base = TOUCH ? 540 : 720, k = Math.min(innerWidth, innerHeight) / base; viewScale = k;
+  W = Math.round(innerWidth / k); H = Math.round(innerHeight / k);
   const r = k * (devicePixelRatio || 1);
-  canvas.width = Math.round(W * r); canvas.height = Math.round(H * r);
-  for (const el of [canvas, worldCanvas]) {
-    el.style.width = cw + 'px'; el.style.height = ch + 'px';
-    el.style.left = Math.floor((innerWidth - cw) / 2) + 'px'; el.style.top = Math.floor((innerHeight - ch) / 2) + 'px';
-  }
-  renderer.setSize(cw, ch, false);
+  canvas.width = Math.round(innerWidth * (devicePixelRatio || 1)); canvas.height = Math.round(innerHeight * (devicePixelRatio || 1));
+  for (const el of [canvas, worldCanvas]) { el.style.width = innerWidth + 'px'; el.style.height = innerHeight + 'px'; el.style.left = '0px'; el.style.top = '0px'; }
+  renderer.setSize(innerWidth, innerHeight, false);
   ctx.setTransform(r, 0, 0, r, 0, 0);
+  GEAR.x = W - 48; GEAR.y = 44 + SAFE_TOP();
 }
-addEventListener('resize', fit); fit();
+const JOY_R = TOUCH ? 70 : 60; // joystick reach in HUD units
+const SAFE_TOP = () => (H > W ? 22 : 0); // a little room under a phone's notch in portrait
+const GEAR = { x: W - 48, y: 44, r: 26 };
+addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 120)); fit();
 function clearHud() { ctx.clearRect(0, 0, W, H); }
 function text(s, x, y, size, c, align = 'center', stroke = true) {
   ctx.font = `bold ${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
-  if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, size * 0.2); ctx.strokeStyle = 'rgba(48,28,18,0.9)'; ctx.strokeText(s, x, y); }
-  ctx.fillStyle = c; ctx.fillText(s, x, y);
+  if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, size * 0.2); ctx.strokeStyle = 'rgba(48,28,18,0.9)'; ctx.strokeText(s, x, y, W - 32); }
+  ctx.fillStyle = c; ctx.fillText(s, x, y, W - 32); // squeezed to fit a narrow screen
 }
 function rrect(g, x, y, w, h, r) {
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
@@ -101,7 +115,6 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => { if (joy.active && e.pointerId === joy.id) { [joy.x, joy.y] = hudXY(e); } });
 const endJoy = e => { if (e.pointerId === joy.id) joy.active = false; };
 canvas.addEventListener('pointerup', endJoy); canvas.addEventListener('pointercancel', endJoy);
-const GEAR = { x: W - 48, y: 44, r: 26 };
 const onGear = (x, y) => Math.hypot(x - GEAR.x, y - GEAR.y) < GEAR.r + 8;
 function buzz(ms) { try { if (touchUsed && navigator.vibrate) navigator.vibrate(ms); } catch (_) {} }
 
@@ -890,7 +903,7 @@ function updatePlayer(dt) {
   if (!state.welcome) {
     if (down.has('KeyA') || down.has('ArrowLeft')) ix -= 1; if (down.has('KeyD') || down.has('ArrowRight')) ix += 1;
     if (down.has('KeyW') || down.has('ArrowUp')) iy += 1; if (down.has('KeyS') || down.has('ArrowDown')) iy -= 1;
-    if (joy.active) { const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy); if (d > 6) { const m = Math.min(1, d / 60); ix = dx / d * m; iy = -dy / d * m; } }
+    if (joy.active) { const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy); if (d > 6) { const m = Math.min(1, d / JOY_R); ix = dx / d * m; iy = -dy / d * m; } }
   }
   const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
   // screen right = (1,0,-1)/sqrt2, screen up = (-1,0,-1)/sqrt2 for the 45-degree camera
@@ -949,8 +962,10 @@ function updateCamera(dt) {
   placeCamera();
 }
 function placeCamera() {
-  const p = tune.cam_pitch * PI / 180, d = tune.cam_distance, h = d * Math.cos(p);
-  camera.fov = tune.cam_fov; camera.updateProjectionMatrix();
+  // a tall screen sees less across, so the camera pulls back a little in portrait
+  const aspect = W / H, pull = aspect < 1 ? Math.min(tune.portrait_pull, 0.9 / Math.sqrt(aspect)) : 1;
+  const p = tune.cam_pitch * PI / 180, d = tune.cam_distance * Math.max(1, pull), h = d * Math.cos(p);
+  camera.fov = tune.cam_fov; camera.aspect = W / H; camera.updateProjectionMatrix();
   camera.position.set(fx.focus.x + h * Math.SQRT1_2, d * Math.sin(p), fx.focus.z + h * Math.SQRT1_2);
   camera.lookAt(fx.focus.x, 0.8, fx.focus.z);
 }
@@ -1088,8 +1103,8 @@ function project(p, cam = camera) { const v = p.clone().project(cam); return [(v
 
 function drawHud() {
   // cash total, top-left
-  ctx.fillStyle = 'rgba(48,28,18,0.72)'; rrect(ctx, 18, 16, 236, 58, 29); ctx.fill();
-  drawCoin(ctx, 48, 45, 19); text(fmt(Math.round(state.walletShown)), 80, 46, 34, '#ffffff', 'left');
+  ctx.fillStyle = 'rgba(48,28,18,0.72)'; const sy = SAFE_TOP(); rrect(ctx, 18, 16 + sy, 236, 58, 29); ctx.fill();
+  drawCoin(ctx, 48, 45 + sy, 19); text(fmt(Math.round(state.walletShown)), 80, 46 + sy, 34, '#ffffff', 'left');
   // settings button, top-right
   ctx.save(); ctx.translate(GEAR.x, GEAR.y);
   ctx.fillStyle = 'rgba(48,28,18,0.72)'; ctx.beginPath(); ctx.arc(0, 0, GEAR.r + 6, 0, 2 * PI); ctx.fill();
@@ -1100,14 +1115,14 @@ function drawHud() {
   for (const f of floats) { const [x, y, z] = project(f.p); if (z < 1) { ctx.globalAlpha = 1 - f.t / 0.9; text(f.txt, x, y, 22, f.col); ctx.globalAlpha = 1; } }
   // golden school banner
   if (state.goldLeft > 0) {
-    const w = 460; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, 18, w, 54, 27); ctx.fill();
+    const w = Math.min(460, W - 32), gy = H > W ? 96 + SAFE_TOP() : 18; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
-    text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, 46, 28, '#ffe27a');
+    text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, gy + 28, 28, '#ffe27a');
   }
   // floating joystick
   if (joy.active) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(joy.x0, joy.y0, 60, 0, 2 * PI); ctx.stroke();
-    const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy), m = Math.min(1, 60 / (d || 1));
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(joy.x0, joy.y0, JOY_R, 0, 2 * PI); ctx.stroke();
+    const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy), m = Math.min(1, JOY_R / (d || 1));
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(joy.x0 + dx * Math.min(1, m), joy.y0 + dy * Math.min(1, m), 26, 0, 2 * PI); ctx.fill();
   }
   if (state.welcome) {
@@ -1119,14 +1134,14 @@ function drawHud() {
     text('Enter or tap to collect', W / 2, H / 2 + 88, 24, '#cfe9ff');
   }
 }
-function panel(w, h) { ctx.fillStyle = 'rgba(48,28,18,0.86)'; rrect(ctx, W / 2 - w / 2, H / 2 - h / 2, w, h, 26); ctx.fill(); ctx.strokeStyle = '#ffe9c4'; ctx.lineWidth = 4; ctx.stroke(); }
+function panel(w, h) { w = Math.min(w, W - 24); ctx.fillStyle = 'rgba(48,28,18,0.86)'; rrect(ctx, W / 2 - w / 2, H / 2 - h / 2, w, h, 26); ctx.fill(); ctx.strokeStyle = '#ffe9c4'; ctx.lineWidth = 4; ctx.stroke(); }
 
 const scenes = {
   figures: {
     update(dt) { state.t += dt; },
     draw() {
       if (!figs) buildFigures();
-      renderer.render(figs.s, figs.cam); clearHud();
+      figs.cam.aspect = W / H; figs.cam.updateProjectionMatrix(); renderer.render(figs.s, figs.cam); clearHud();
       text('Fishing Camp: figures', W / 2, 40, 30, '#ffffff');
       for (const [name, p] of figs.list) { const [x, y] = project(p.clone().add(new V3(0, -0.35, 0.6)), figs.cam); text(name, x, y + 14, 18, '#ffffff'); }
     },
@@ -1136,16 +1151,19 @@ const scenes = {
       fx.focus.x = -2 + Math.sin(state.t * 0.15) * 3; state.t += dt; updateCrowds(); updateParticles(dt);
       for (const s of fx.streaks) { s.m.position.x += s.v * dt; if (s.m.position.x > 60) s.m.position.x = -40; }
       placeCamera();
-      if (pressed('Enter') || pressed('Space') || tapped) { scene = 'play'; tapped = null; }
+      if (pressed('Enter') || pressed('Space') || tapped) {
+        if (tapped && TOUCH) { try { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el); } catch (_) {} } // Android: play fullscreen
+        scene = 'play'; tapped = null; }
     },
     draw() {
       renderer.render(scene3, camera); clearHud();
       const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(30,18,10,0.15)'); gr.addColorStop(0.5, 'rgba(30,18,10,0.6)'); gr.addColorStop(1, 'rgba(30,18,10,0.15)');
       ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
       text(TITLE, W / 2, H / 3 - 10, 84, '#ffe9a8');
-      text('Catch. Cook. Feed the army. Hire your way out of every job.', W / 2, H / 3 + 56, 24, '#ffffff');
+      if (W >= 900) text('Catch. Cook. Feed the army. Hire your way out of every job.', W / 2, H / 3 + 56, 24, '#ffffff');
+      else { text('Catch. Cook. Feed the army.', W / 2, H / 3 + 50, 24, '#ffffff'); text('Hire your way out of every job.', W / 2, H / 3 + 82, 24, '#ffffff'); }
       CONTROLS.forEach((c, i) => text(c, W / 2, H / 2 + 50 + i * 36, 24, '#e8f4ff'));
-      text('Press Enter or tap to start', W / 2, H - 60, 30, '#ffffff');
+      text(TOUCH ? 'Tap to start' : 'Press Enter or tap to start', W / 2, H - 60, 30, '#ffffff');
     },
   },
   play: {

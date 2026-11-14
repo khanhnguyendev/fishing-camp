@@ -15,12 +15,14 @@ After play: there are 2 grills but only one cooker, is it bug?
 After play: yes please (both pots cooking in parallel, and a pot-boy at the second pot)
 After play: and look like our initial yard too big so the user need to run a lot
 After play: fishing area stuck and not center
+After play: look like this game not have UI/UX for mobile? or require users to landscape to play in fullscreen?
+After play: Portrait-first (fill any screen; portrait is the main way to play, landscape still works)
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
 **Genre:** Arcade idle (management-tycoon + idle-incremental)
 
-**Controls:** WASD / arrows, or click/touch-drag floating joystick. Movement only; every action triggers by standing on a tile.
+**Controls:** WASD / arrows, or click/touch-drag floating joystick (portrait-first on phones). Movement only; every action triggers by standing on a tile.
 
 **Question:** Does carry → cook → serve → hire feel satisfying enough to keep someone playing through all six zone-1 unlocks?
 
@@ -68,6 +70,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [ ] Feedback from the GDD's table: splash, rising-pitch clacks, puffs, bell, pop-up bounce (synth sound)
 - [x] Every number in `config.js`
 - [x] Second pot cooks in parallel: the chef cuts, each pot cooks its own fish and throws its own bowls; a pot-boy stirs the second pot
+- [x] Phone play: fills any screen portrait-first, touch-first title, adaptive HUD, add-to-home-screen fullscreen
 
 ## Your systems
 - hiring workers · in the slice

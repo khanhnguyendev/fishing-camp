@@ -74,6 +74,7 @@ window.CONFIG = {
   cam_distance:    { value: 25, min: 10, max: 60, step: 1 },      // metres from the player
   cam_pitch:       { value: 50, min: 25, max: 80, step: 1 },      // degrees of tilt
   cam_fov:         { value: 34, min: 15, max: 70, step: 1 },      // vertical field of view (degrees)
+  portrait_pull:   { value: 1.35, min: 1, max: 2.5, step: 0.05 }, // most the camera pulls back on a tall (portrait) screen
   cam_lag:         { value: 6, min: 1, max: 20, step: 0.5 },      // follow stiffness (higher = less lag)
   glide_time:      { value: 1.5, min: 0, max: 4, step: 0.1 },     // seconds the camera visits a new unlock
 };
