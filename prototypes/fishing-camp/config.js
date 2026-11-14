@@ -3,7 +3,7 @@
 // Date: 2026-11-14
 // Every tuning value lives here, each with value, min, max and step. The game reads them live
 // through tune.<name> (index.html); the tweak panel, an add-on, writes them back here.
-// Starting values come from the GDD (Game Design Document Fishing Camp.md, section 5).
+// Starting values come from the GDD (design/GDD.md, section 5).
 window.CONFIG = {
   seed: 1, // every gameplay random call reads rng(), seeded from this (or ?seed= in the address)
   volume: { value: 0.5, min: 0, max: 1, step: 0.05 },

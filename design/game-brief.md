@@ -1,7 +1,7 @@
 # Game Brief: Fishing Camp
 
 ## In your words
-Built from: `Game Design Document Fishing Camp.md` (the source of truth for numbers and feedback).
+Built from: `design/GDD.md` (the source of truth for numbers and feedback).
 
 1. Map: Usual: all of zone 1 with its six unlocks, ending when the gate to zone 2 opens and the first sushi plate is sold.
 2. Feel: Busy: a crowd that never stops, bowls flying, a new unlock every 30–60 s.
