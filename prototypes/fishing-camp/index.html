@@ -107,7 +107,7 @@ function hudXY(e) { const r = canvas.getBoundingClientRect(); return [(e.clientX
 canvas.addEventListener('pointerdown', e => {
   startAudio(); if (e.pointerType === 'touch') touchUsed = true;
   const [x, y] = hudXY(e); tapped = { x, y };
-  if (scene === 'play' && !onGear(x, y) && !(state && state.welcome)) {
+  if (scene === 'play' && !onGear(x, y)) {
     joy.active = true; joy.id = e.pointerId; joy.x0 = joy.x = x; joy.y0 = joy.y = y;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   }
@@ -1134,7 +1134,7 @@ function drawHud() {
     const m = Math.floor(state.welcome.away / 60), h = Math.floor(m / 60);
     text(`Your camp cooked while you were away (${h ? h + 'h ' : ''}${m % 60}m)`, W / 2, H / 2 - 18, 22, '#ffffff');
     drawCoin(ctx, W / 2 - 80, H / 2 + 32, 20); text(fmt(state.welcome.earned), W / 2 - 50, H / 2 + 33, 40, '#ffffff', 'left');
-    text('Enter or tap to collect', W / 2, H / 2 + 88, 24, '#cfe9ff');
+    text(TOUCH ? 'Tap or move to collect' : 'Press any key or click to collect', W / 2, H / 2 + 88, 24, '#cfe9ff');
   }
 }
 function panel(w, h) { w = Math.min(w, W - 24); ctx.fillStyle = 'rgba(48,28,18,0.86)'; rrect(ctx, W / 2 - w / 2, H / 2 - h / 2, w, h, 26); ctx.fill(); ctx.strokeStyle = '#ffe9c4'; ctx.lineWidth = 4; ctx.stroke(); }
@@ -1172,7 +1172,9 @@ const scenes = {
   play: {
     update(dt) {
       if (pressed('KeyP') || pressed('Escape') || (tapped && onGear(tapped.x, tapped.y))) { scene = 'pause'; tapped = null; joy.active = false; return; }
-      if (state.welcome && (pressed('Enter') || pressed('Space') || tapped)) collectWelcome();
+      // the welcome-back popup never blocks: any key, click or drag collects it and play goes on
+      const moveKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some(k => down.has(k));
+      if (state.welcome && (pressed('Enter') || pressed('Space') || tapped || moveKey || joy.active)) collectWelcome();
       tapped = null;
       state.playTime += dt;
       tick3D(dt);
