@@ -1,0 +1,12 @@
+{
+  "name": "Fishing Camp",
+  "short_name": "Fishing Camp",
+  "description": "Catch fish, cook soup, feed an endless army, hire your way out of every job.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#1d3b2a",
+  "theme_color": "#e8964a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
