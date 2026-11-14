@@ -376,20 +376,20 @@ function splash(pos) {
 }
 
 // ---- Layout --------------------------------------------------------------------------------
-const Z1 = { x0: -9.7, x1: 9.6, z0: -8.8, z1: 8.6 }, Z2 = { x0: 10.4, x1: 25.7, z0: -8.8, z1: 8.6 }, GATE = { x0: 9.0, x1: 11.0, z0: -1.6, z1: 1.6 };
+const Z1 = { x0: -4.7, x1: 6.6, z0: -8.8, z1: 7.6 }, Z2 = { x0: 7.4, x1: 20.3, z0: -8.8, z1: 7.6 }, GATE = { x0: 6.0, x1: 8.0, z0: -1.6, z1: 1.6 };
 const inRect = (r, x, z) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1;
 function walkable(x, z) { return inRect(Z1, x, z) || (state.gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z))); }
 const inTile = (p, t, h = 0.85) => Math.abs(p.x - t.x) < h && Math.abs(p.z - t.z) < h;
 const UNLOCKS = [
-  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -5, z: -8, req: [], focus: [-7, -8] },
-  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: -1, z: -8, req: ['fisher1'], focus: [-3, -8] },
-  { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 6.6, z: 4.6, req: ['fisher1'] },
-  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 3, z: -8, req: ['fisher2'], focus: [1, -8] },
-  { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -2, z: 4.6, req: ['fisher3'], focus: [-3, 2.6] },
-  { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 6.6, z: 7.0, req: ['fisher3'] },
-  { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 8.4, z: 0, req: ['conveyor'], focus: [17.5, -1.5] },
+  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -3.6, z: -8, req: [], focus: [-5.4, -8] },
+  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 0, z: -8, req: ['fisher1'], focus: [-1.8, -8] },
+  { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 5.6, z: 4.6, req: ['fisher1'] },
+  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 3.6, z: -8, req: ['fisher2'], focus: [1.8, -8] },
+  { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -0.6, z: 4.6, req: ['fisher3'], focus: [-0.6, 2.6] },
+  { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 5.6, z: 6.6, req: ['fisher3'] },
+  { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 5.6, z: 0.4, req: ['conveyor'], focus: [14.2, -1.5] },
   { id: 'pot2', kind: 'upgrade', label: 'SECOND POT', price: 'price_pot2', x: 5.8, z: -4.4, req: ['conveyor'], focus: [4.3, -2] },
-  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 16.5, z: -8, req: ['gate'], focus: [14.5, -8] },
+  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 13.0, z: -8, req: ['gate'], focus: [11.2, -8] },
 ];
 
 // ---- Tiles drawn on the ground ----------------------------------------------------------------
@@ -462,14 +462,14 @@ function bubbleTex(dish, n) {
 // ---- Building the camp ------------------------------------------------------------------------
 function buildEnvironment() {
   const deckCols = ['#e8964a', '#df8a3e', '#ef9f55', '#e48f45'];
-  for (const [x0, x1, zoneTag] of [[-11, 10, 1], [10, 26.6, 2]]) {
-    for (let i = 0; i < 19; i++) {
+  for (const [x0, x1, zoneTag] of [[-6, 7, 1], [7, 21.6, 2]]) {
+    for (let i = 0; i < 18; i++) {
       const z = -9.5 + i + 0.5;
       add(world, G.box, deckCols[(i + zoneTag) % 4], (x0 + x1) / 2, -0.15, z, 0, 0, 0, x1 - x0, 0.3, 0.97);
     }
   }
-  add(world, G.box, '#a85f2a', 7.8, -0.16, -9.5, 0, 0, 0, 37.6, 0.32, 0.12); // deck lip
-  for (let x = -10.5; x <= 26; x += 2.5) add(world, G.cyl6, '#7b4a26', x, -0.5, -9.6, 0, 0, 0, 0.28, 0.8, 0.28); // pier posts
+  add(world, G.box, '#a85f2a', 7.8, -0.16, -9.5, 0, 0, 0, 27.6, 0.32, 0.12); // deck lip
+  for (let x = -5.5; x <= 21; x += 2.5) add(world, G.cyl6, '#7b4a26', x, -0.5, -9.6, 0, 0, 0, 0.28, 0.8, 0.28); // pier posts
   add(world, G.box, '#86c95a', 10, -0.33, 25, 0, 0, 0, 220, 0.3, 69); // near grass
   add(world, G.box, '#7cc052', 10, -0.33, -58, 0, 0, 0, 220, 0.3, 64); // far bank
   fx.river = add(world, G.box, '#3d9be0', 10, -0.55, -17.8, 0, 0, 0, 220, 0.2, 16.6);
@@ -487,20 +487,20 @@ function buildEnvironment() {
     for (const y of [0.45, 0.8]) add(world, G.box, '#b07440', (x0 + x1) / 2, y, (z0 + z1) / 2, 0, ang, 0, 0.1, 0.1, len);
   };
   const fence = (x0, z0, x1, z1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0))); for (let i = 0; i <= n; i++) post(x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n); rail(x0, z0, x1, z1); };
-  fence(-11, -9.3, -11, 0.3); fence(-11, 4.7, -11, 9.3); fence(-11, 9.3, 27, 9.3);
-  fence(10, -9.3, 10, -2.1); fence(10, 2.1, 10, 9.3); fence(27, -9.3, 27, 0.3); fence(27, 4.7, 27, 9.3);
+  fence(-6, -9.3, -6, 0.3); fence(-6, 4.7, -6, 8.3); fence(-6, 8.3, 21.6, 8.3);
+  fence(7, -9.3, 7, -2.1); fence(7, 2.1, 7, 8.3); fence(21.6, -9.3, 21.6, 0.3); fence(21.6, 4.7, 21.6, 8.3);
   // gate doors with a padlock sign
   fx.doors = [];
   for (const s of [-1, 1]) {
-    const hinge = new THREE.Group(); hinge.position.set(10, 0, s * 2.05); world.add(hinge);
+    const hinge = new THREE.Group(); hinge.position.set(7, 0, s * 2.05); world.add(hinge);
     for (let k = 0; k < 4; k++) add(hinge, G.box, '#8a5a2b', 0, 0.75, -s * (0.25 + k * 0.5), 0, 0, 0, 0.14, 1.5, 0.44);
     add(hinge, G.box, '#6b4220', 0, 0.5, -s * 1.0, 0, 0, 0, 0.2, 0.12, 2.0); add(hinge, G.box, '#6b4220', 0, 1.2, -s * 1.0, 0, 0, 0, 0.2, 0.12, 2.0);
     fx.doors.push({ hinge, s });
   }
-  fx.lock = new THREE.Group(); fx.lock.position.set(10.15, 1.0, 0); world.add(fx.lock);
+  fx.lock = new THREE.Group(); fx.lock.position.set(7.15, 1.0, 0); world.add(fx.lock);
   add(fx.lock, G.box, '#f2c230', 0, 0, 0, 0, 0, 0, 0.18, 0.5, 0.6); add(fx.lock, new THREE.TorusGeometry(0.2, 0.06, 5, 12, PI), '#c9c9cf', 0, 0.25, 0, 0, PI / 2, 0);
   // locked yard shade
-  fx.cover = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 18.3, 0.03, -0.25, 0, 0, 0, 16.6, 0.02, 18.9);
+  fx.cover = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 14.3, 0.03, -0.5, 0, 0, 0, 14.6, 0.02, 18.0);
   // blossom trees
   const tree = (x, z, s = 1) => {
     const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); world.add(g);
@@ -519,7 +519,7 @@ function buildRods() {
   rods = [];
   const rodGeo = new THREE.CylinderGeometry(0.035, 0.06, 3.4, 5); rodGeo.translate(0, 1.7, 0);
   const lineGeo = new THREE.CylinderGeometry(0.014, 0.014, 1, 4); lineGeo.translate(0, 0.5, 0);
-  const xs = [-7, -3, 1, 14.5];
+  const xs = [-5.4, -1.8, 1.8, 11.2];
   xs.forEach((x, i) => {
     const g = new THREE.Group(); world.add(g);
     add(g, G.box, '#7a4a26', x, 0.3, -9.25, 0, 0, 0, 0.3, 0.6, 0.3); add(g, new THREE.TorusGeometry(0.18, 0.05, 4, 10), '#d9c08a', x, 0.35, -9.08, 0, 0, 0);
@@ -561,19 +561,19 @@ function buildKitchen() {
     pots: () => state.pot2 ? [new V3(2.3, 1.4, -2), new V3(4.3, 1.4, -2)] : [new V3(2.3, 1.4, -2)], timeKey: 'cook_time', perKey: 'bowls_per_fish', outType: 'bowl', chef: fx.chef, slots: [], boardBusy: false });
   // zone 2: grill yard
   fx.z2 = new THREE.Group(); world.add(fx.z2); fx.z2.visible = false;
-  const gr = new THREE.Group(); gr.position.set(17.5, 0, -2.4); fx.z2.add(gr);
+  const gr = new THREE.Group(); gr.position.set(14.2, 0, -2.4); fx.z2.add(gr);
   add(gr, G.box, '#6e6a68', 0, 0.4, 0, 0, 0, 0, 1.8, 0.8, 1.1); add(gr, G.box, '#2a2626', 0, 0.84, 0, 0, 0, 0, 1.7, 0.08, 1.0);
   add(gr, G.box, '#ff7a1f', 0, 0.86, 0, 0, 0, 0, 1.5, 0.04, 0.85);
   for (let i = -3; i <= 3; i++) add(gr, G.box, '#4a4a52', i * 0.22, 0.92, 0, 0, 0, 0, 0.05, 0.05, 1.0);
   add(gr, G.cyl6, '#55555f', 0.7, 1.4, -0.4, 0, 0, 0, 0.18, 1.2, 0.18); blob(gr, 1.2);
   const st = new THREE.Group(); fx.z2.add(st);
-  add(st, G.box, '#9a6235', 19.9, 0.22, -0.6, 0, 0, 0, 1.4, 0.44, 1.1); add(st, G.box, '#c98d55', 19.9, 0.46, -0.6, 0, 0, 0, 1.5, 0.05, 1.2);
-  fx.z2tiles = [standTile(17.5, -4.1), standTile(19.9, 0.75)]; fx.z2tiles.forEach(t => (t.visible = false));
-  piles.grill = makePile('fish', 'board_limit', i => new V3(18.05, 0.9 + (i % 5) * ITEM_H.fish, -2.65 + (i / 5 | 0) * 0.4));
-  piles.sushi = makePile('plate', 'sushi_limit', i => { const c = i / 6 | 0; return new V3(19.9 + ((c % 3) - 1) * 0.5, 0.5 + (i % 6) * ITEM_H.plate, -0.6 + ((c / 3 | 0) - 0.5) * 0.45); });
-  fx.grillchef = makeChar('grillchef'); fx.grillchef.group.position.set(16.2, 0, -2.4); fx.grillchef.group.rotation.y = PI / 2; fx.z2.add(fx.grillchef.group); blob(fx.grillchef.group, 0.5);
-  processors.push({ name: 'grill', active: false, input: piles.grill, out: piles.sushi, drop: new V3(17.5, 0, -4.1), work: new V3(17.3, 1.0, -2.4),
-    pots: () => [new V3(17.5, 1.3, -2.4)], timeKey: 'grill_time', perKey: 'plates_per_fish', outType: 'plate', chef: fx.grillchef, slots: [], boardBusy: false });
+  add(st, G.box, '#9a6235', 16.6, 0.22, -0.6, 0, 0, 0, 1.4, 0.44, 1.1); add(st, G.box, '#c98d55', 16.6, 0.46, -0.6, 0, 0, 0, 1.5, 0.05, 1.2);
+  fx.z2tiles = [standTile(14.2, -4.1), standTile(16.6, 0.75)]; fx.z2tiles.forEach(t => (t.visible = false));
+  piles.grill = makePile('fish', 'board_limit', i => new V3(14.75, 0.9 + (i % 5) * ITEM_H.fish, -2.65 + (i / 5 | 0) * 0.4));
+  piles.sushi = makePile('plate', 'sushi_limit', i => { const c = i / 6 | 0; return new V3(16.6 + ((c % 3) - 1) * 0.5, 0.5 + (i % 6) * ITEM_H.plate, -0.6 + ((c / 3 | 0) - 0.5) * 0.45); });
+  fx.grillchef = makeChar('grillchef'); fx.grillchef.group.position.set(12.9, 0, -2.4); fx.grillchef.group.rotation.y = PI / 2; fx.z2.add(fx.grillchef.group); blob(fx.grillchef.group, 0.5);
+  processors.push({ name: 'grill', active: false, input: piles.grill, out: piles.sushi, drop: new V3(14.2, 0, -4.1), work: new V3(14.0, 1.0, -2.4),
+    pots: () => [new V3(14.2, 1.3, -2.4)], timeKey: 'grill_time', perKey: 'plates_per_fish', outType: 'plate', chef: fx.grillchef, slots: [], boardBusy: false });
 }
 function buildCounters() {
   counters = [];
@@ -600,11 +600,11 @@ function buildCounters() {
     slots.forEach(s => { s.want = Math.floor(rr(tune.want_min, tune.want_max + 0.999)); });
     counters.push(counter);
   };
-  mk(false, -10.4, 1, 'bowl', 'bowl_price', false);
-  mk(true, 26.4, -1, 'plate', 'plate_price', true);
+  mk(false, -5.4, 1, 'bowl', 'bowl_price', false);
+  mk(true, 21.0, -1, 'plate', 'plate_price', true);
 }
 function buildBelt() {
-  belt = { on: false, items: [], cd: 0, x0: 3.3, x1: -9.6, z: 2.6, y: 0.5 };
+  belt = { on: false, items: [], cd: 0, x0: 3.3, x1: -4.6, z: 2.6, y: 0.5 };
   const g = new THREE.Group(); world.add(g); g.visible = false; belt.g = g;
   const bt = canvasTex(64, 32, x => { x.fillStyle = '#3f3d44'; x.fillRect(0, 0, 64, 32); x.fillStyle = '#5c5a63'; x.fillRect(0, 0, 14, 32); x.fillRect(32, 0, 14, 32); });
   bt.t.wrapS = THREE.RepeatWrapping; bt.t.repeat.set(16, 1); belt.tex = bt.t;
@@ -649,7 +649,7 @@ function updateCarrier(c, dt) {
 function buildTiles() {
   tiles = UNLOCKS.map(def => {
     const tex = canvasTex(256, 256, () => {});
-    const m = groundPlane(world, def.x, def.z, 1.9, new THREE.MeshBasicMaterial({ map: tex.t, transparent: true, depthWrite: false }), 0.04);
+    const m = groundPlane(world, def.x, def.z, 1.7, new THREE.MeshBasicMaterial({ map: tex.t, transparent: true, depthWrite: false }), 0.04);
     m.visible = false;
     const t = { def, mesh: m, tex, paid: 0, done: false, shown: -1, dwell: 0, cd: 0, flash: 0, hideT: -1, visibleNow: false };
     return t;
@@ -682,13 +682,13 @@ function unlock(t, instant) {
 }
 function updateTiles(dt) {
   for (const t of tiles) {
-    if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar(1.9 * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
+    if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar(1.7 * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
     const vis = tileVisible(t);
-    if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: v => t.mesh.scale.setScalar(1.9 * v) } }, t: 0, dur: 0.5 }); }
+    if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: v => t.mesh.scale.setScalar(1.7 * v) } }, t: 0, dur: 0.5 }); }
     if (!vis) continue;
     const price = tune[t.def.price], remaining = price - t.paid;
     if (remaining <= 0) { unlock(t, false); continue; }
-    if (inTile(player.pos, t.def, 0.95) && !state.welcome) {
+    if (inTile(player.pos, t.def, 0.85) && !state.welcome) {
       t.dwell += dt; t.cd -= dt;
       if (t.dwell > tune.pay_dwell && state.wallet > 0 && t.cd <= 0) {
         const amt = Math.min(state.wallet, remaining, Math.max(1, Math.ceil(price / tune.pay_chunks)));
@@ -916,7 +916,7 @@ function updatePlayer(dt) {
       giveTo(player, pr.input, top); player.cd = tune.pickup_interval * 1.4; sfx.drop(state.streak++); state.streakT = 0.5; return;
     }
   }
-  const pick = [[piles.pot, new V3(3.3, 0, 1.35), true], [piles.sushi, new V3(19.9, 0, 0.75), state.gateOpen]];
+  const pick = [[piles.pot, new V3(3.3, 0, 1.35), true], [piles.sushi, new V3(16.6, 0, 0.75), state.gateOpen]];
   for (const [pile, at, ok] of pick) {
     if (ok && inTile(P, at) && pile.top() && player.canTake(pile.type)) { takeFrom(player, pile); player.cd = tune.pickup_interval; sfx.clack(state.streak++); state.streakT = 0.5; return; }
   }
@@ -955,12 +955,12 @@ function placeCamera() {
 }
 function guideTarget() {
   const top = player.stack[0];
-  const zone2 = player.pos.x > 10;
+  const zone2 = player.pos.x > 7;
   if (top && top.type === 'fish') return zone2 && state.gateOpen ? processors[1].drop : processors[0].drop;
   if (top && top.type === 'bowl') return belt.on && !zone2 ? null : counters[0].drop;
   if (top && top.type === 'plate') return counters[1].drop;
   if (state.gateOpen && !state.goalDone) {
-    if (piles.sushi.top()) return new V3(19.9, 0, 0.75);
+    if (piles.sushi.top()) return new V3(16.6, 0, 0.75);
     if (!rods[3].owner) return rods[3].tile;
   }
   for (const t of tiles) if (tileVisible(t) && t.hideT < 0 && state.wallet >= tune[t.def.price] - t.paid) return new V3(t.def.x, 0, t.def.z);
@@ -1027,7 +1027,7 @@ function reset() {
   fx.obstacles = () => {
     const o = [[0, -2, 1.1], [-1.45, -2, 0.5], [2.3, -2, 0.85], [3.3, 0, 0.8]];
     if (state.pot2) o.push([4.3, -2, 0.85], [5.45, -2, 0.5]);
-    if (state.gateOpen) o.push([17.5, -2.4, 1.1], [16.2, -2.4, 0.5], [19.9, -0.6, 0.8]);
+    if (state.gateOpen) o.push([14.2, -2.4, 1.1], [12.9, -2.4, 0.5], [16.6, -0.6, 0.8]);
     return o;
   };
   const arrowShape = new THREE.Shape([[0, 0.62], [0.48, 0.05], [0.18, 0.05], [0.18, -0.5], [-0.18, -0.5], [-0.18, 0.05], [-0.48, 0.05]].map(p => new THREE.Vector2(p[0], p[1])));
