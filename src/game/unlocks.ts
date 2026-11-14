@@ -13,3 +13,9 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 12.33, z: -9.13, size: 1.2, req: ['gate'], focus: [11.2, -8] },
 ];
 
+
+/** The bamboo rods along the dock: x of each (the last is the grill yard's), and where you stand to fish. */
+export const ROD_X: number[] = [-3.1, 0.5, 4.1, 11.2];
+export const ROD_TILE_Z = -8;
+/** Size in metres of a standing tile (rods, drop-offs, pick-ups). */
+export const STAND_SIZE = 1.7;

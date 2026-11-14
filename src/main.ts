@@ -9,7 +9,7 @@ import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP,
 import { startAudio, setMuted, muted, sfx } from './audio';
 import { setSeed, rng, rr } from './game/random';
 import { fmt, dishValue, payChunk, carryCap, offlineEarnings, inTile, walkableAt } from './game/rules';
-import { UNLOCKS } from './game/unlocks';
+import { UNLOCKS, ROD_X, ROD_TILE_Z } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
 const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
@@ -399,7 +399,7 @@ function buildRods() {
   rods = [];
   const rodGeo = new THREE.CylinderGeometry(0.035, 0.06, 3.4, 5); rodGeo.translate(0, 1.7, 0);
   const lineGeo = new THREE.CylinderGeometry(0.014, 0.014, 1, 4); lineGeo.translate(0, 0.5, 0);
-  const xs = [-3.1, 0.5, 4.1, 11.2];
+  const xs = ROD_X;
   xs.forEach((x: Loose, i: Loose) => {
     const g = new THREE.Group(); world.add(g);
     add(g, G.box, '#7a4a26', x, 0.3, -9.25, 0, 0, 0, 0.3, 0.6, 0.3); add(g, new THREE.TorusGeometry(0.18, 0.05, 4, 10), '#d9c08a', x, 0.35, -9.08, 0, 0, 0);
@@ -410,8 +410,8 @@ function buildRods() {
     const line = add(g, lineGeo, lineMat);
     const bobber = new THREE.Group(); bobber.position.set(x, -0.42, -12.6); g.add(bobber);
     add(bobber, G.sph, '#e23b2e', 0, 0.05, 0, 0, 0, 0, 0.2); add(bobber, G.sph, '#ffffff', 0, 0.16, 0, 0, 0, 0, 0.14);
-    const tile = new V3(x, 0, -8);
-    const tileMesh = standTile(x, -8);
+    const tile = new V3(x, 0, ROD_TILE_Z);
+    const tileMesh = standTile(x, ROD_TILE_Z);
     rods.push({ i, x, g, pivot, rodMesh, line, lineMat, bobber, tile, tileMesh, prog: 0, owner: null, active: i < 3, sndT: 0, ripT: 0 });
     if (i === 3) { g.visible = false; tileMesh.visible = false; }
   });
