@@ -18,6 +18,8 @@ After play: fishing area stuck and not center
 After play: look like this game not have UI/UX for mobile? or require users to landscape to play in fullscreen?
 After play: Portrait-first (fill any screen; portrait is the main way to play, landscape still works)
 After play: not work on mobile, and look like icon/box buy fisher overlapse a little bit
+After play: the fisher on the way we go, so users can easily make mistake spend unwanted money
+After play: we should smaller fisher price title or place it another place, currently it so far the fisher position so easily misunderstanding
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
@@ -61,7 +63,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Back stack: one item type at a time, capacity; items fly on and drop off one by one; sway and lean
 - [x] Stations: 3 rods, chef's board + soup pot, fence counter, conveyor, grill (zone 2)
 - [x] Endless soldier crowd; front row has logic with want-bubbles, steps back and refills
-- [x] Price tiles (hire / upgrade / open-zone icons) that drain cash and count down, keeping partial payment
+- [x] Price tiles (hire / upgrade / open-zone icons) that drain cash and count down, keeping partial payment; cash flows only while you stand still on one
 - [x] Workers: fishers (rod → board) and carrier/conveyor; workers never touch cash
 - [x] Zone 1's six unlocks in the GDD's order and prices, then zone 2 (grill, sushi, gold soldiers)
 - [x] Guide arrow to the next useful task for the first 3 minutes

@@ -396,15 +396,15 @@ function walkable(x, z) { return inRect(Z1, x, z) || inRect(Z1N, x, z) || inRect
 // tiles are drawn as squares facing the camera (turned 45 degrees on the ground); stand-checks use the same square
 const inTile = (p, t, h = 0.85) => { const dx = p.x - t.x, dz = p.z - t.z; return Math.abs(dx - dz) * Math.SQRT1_2 < h && Math.abs(dx + dz) * Math.SQRT1_2 < h; };
 const UNLOCKS = [
-  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -1.3, z: -5.9, req: [], focus: [-3.1, -8] },
-  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 2.3, z: -5.9, req: ['fisher1'], focus: [0.5, -8] },
+  { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -1.97, z: -9.13, size: 1.2, req: [], focus: [-3.1, -8] },
+  { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 1.63, z: -9.13, size: 1.2, req: ['fisher1'], focus: [0.5, -8] },
   { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 5.6, z: 4.6, req: ['fisher1'] },
-  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 5.9, z: -5.9, req: ['fisher2'], focus: [4.1, -8] },
+  { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 5.23, z: -9.13, size: 1.2, req: ['fisher2'], focus: [4.1, -8] },
   { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -0.6, z: 4.6, req: ['fisher3'], focus: [-0.6, 2.6] },
   { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 3.4, z: 6.6, req: ['fisher3'] },
   { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 5.6, z: 0.4, req: ['conveyor'], focus: [14.2, -1.5] },
   { id: 'pot2', kind: 'upgrade', label: 'SECOND POT', price: 'price_pot2', x: 5.8, z: -4.4, req: ['conveyor'], focus: [4.3, -2] },
-  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 13.0, z: -5.9, req: ['gate'], focus: [11.2, -8] },
+  { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 12.33, z: -9.13, size: 1.2, req: ['gate'], focus: [11.2, -8] },
 ];
 
 // ---- Tiles drawn on the ground ----------------------------------------------------------------
@@ -664,7 +664,7 @@ function updateCarrier(c, dt) {
 function buildTiles() {
   tiles = UNLOCKS.map(def => {
     const tex = canvasTex(256, 256, () => {});
-    const m = groundPlane(world, def.x, def.z, 1.7, new THREE.MeshBasicMaterial({ map: tex.t, transparent: true, depthWrite: false }), 0.04);
+    const m = groundPlane(world, def.x, def.z, def.size || 1.7, new THREE.MeshBasicMaterial({ map: tex.t, transparent: true, depthWrite: false }), 0.04);
     m.visible = false;
     const t = { def, mesh: m, tex, paid: 0, done: false, shown: -1, dwell: 0, cd: 0, flash: 0, hideT: -1, visibleNow: false };
     return t;
@@ -697,13 +697,15 @@ function unlock(t, instant) {
 }
 function updateTiles(dt) {
   for (const t of tiles) {
-    if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar(1.7 * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
+    if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar((t.def.size || 1.7) * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
     const vis = tileVisible(t);
-    if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: v => t.mesh.scale.setScalar(1.7 * v) } }, t: 0, dur: 0.5 }); }
+    if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: v => t.mesh.scale.setScalar((t.def.size || 1.7) * v) } }, t: 0, dur: 0.5 }); }
     if (!vis) continue;
     const price = tune[t.def.price], remaining = price - t.paid;
     if (remaining <= 0) { unlock(t, false); continue; }
-    if (inTile(player.pos, t.def, 0.85) && !state.welcome) {
+    // cash flows only while you stand still on the tile, so running across one never pays it
+    const still = Math.hypot(player.vel.x, player.vel.z) < tune.pay_still_speed;
+    if (inTile(player.pos, t.def, (t.def.size || 1.7) / 2) && !state.welcome && still) {
       t.dwell += dt; t.cd -= dt;
       if (t.dwell > tune.pay_dwell && state.wallet > 0 && t.cd <= 0) {
         const amt = Math.min(state.wallet, remaining, Math.max(1, Math.ceil(price / tune.pay_chunks)));

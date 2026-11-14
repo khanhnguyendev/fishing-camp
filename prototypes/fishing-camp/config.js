@@ -50,7 +50,8 @@ window.CONFIG = {
   price_gate:        { value: 500, min: 10, max: 5000, step: 10 },
   price_pot2:        { value: 500, min: 10, max: 5000, step: 10 },
   price_grillfisher: { value: 600, min: 10, max: 5000, step: 10 },
-  pay_dwell:       { value: 0.25, min: 0, max: 2, step: 0.05 },   // seconds standing on a price tile before cash flows
+  pay_dwell:       { value: 0.35, min: 0, max: 2, step: 0.05 },   // seconds standing still on a price tile before cash flows
+  pay_still_speed: { value: 0.6, min: 0.1, max: 5, step: 0.1 },    // below this speed (m/s) you count as stopped on a tile
   pay_chunks:      { value: 30, min: 5, max: 100, step: 1 },      // a tile's price is paid in about this many bundles
   pay_interval:    { value: 0.035, min: 0.01, max: 0.2, step: 0.005 }, // seconds between paid bundles
 
