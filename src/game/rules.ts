@@ -77,11 +77,27 @@ export const GATE: Rect = { x0: 6.0, x1: 8.0, z0: -1.6, z1: 1.6 };
 /** Zone 3, the rice field, south of the grill yard, and the passage through its gate. */
 export const Z3: Rect = { x0: 7.9, x1: 20.9, z0: 9.0, z1: 19.8 };
 export const GATE3: Rect = { x0: 12.6, x1: 15.4, z0: 7.0, z1: 9.6 };
+/** Zone 4, the great hearth, south of the rice field, and the passage through its gate. */
+export const Z4: Rect = { x0: 7.9, x1: 20.9, z0: 21.4, z1: 32.0 };
+export const GATE4: Rect = { x0: 12.6, x1: 15.4, z0: 19.4, z1: 22.0 };
 
 /** True when the player may stand at (x, z), given which gates are open. */
-export function walkableAt(x: number, z: number, gateOpen: boolean, gate3Open = false): boolean {
+export function walkableAt(x: number, z: number, gateOpen: boolean, gate3Open = false, gate4Open = false): boolean {
   return inRect(Z1, x, z) || inRect(Z1N, x, z) || inRect(Z1S, x, z) || (gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z)))
-    || (gate3Open && (inRect(Z3, x, z) || inRect(GATE3, x, z)));
+    || (gate3Open && (inRect(Z3, x, z) || inRect(GATE3, x, z))) || (gate4Open && (inRect(Z4, x, z) || inRect(GATE4, x, z)));
+}
+
+/** True when (x, z) is inside the great hearth's yard. */
+export const inZone4 = (x: number, z: number): boolean => inRect(Z4, x, z);
+
+/** The hearth's fire after dt seconds of burning: it never drops below zero. */
+export function burnFuel(fuel: number, dt: number): number {
+  return Math.max(0, fuel - dt);
+}
+
+/** True when one more bundle of firewood fits on the fire without going over its most. */
+export function wantsLog(fuel: number, max: number, burn: number): boolean {
+  return fuel + burn <= max;
 }
 
 /** True when (x, z) is inside the rice field. */

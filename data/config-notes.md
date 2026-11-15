@@ -92,3 +92,17 @@ holds no comments. The values themselves are in `data/config.json`.
 
 ## Music (GDD 8: one 60-90 s loop per zone)
 - `music_volume`: loudness of the music under the effects (M mutes both)
+
+## Zone 4: the great hearth (GDD 6; prices are proposals: a new zone ~4x the last gate, dish 3x rice balls per fish)
+- `price_gate4`: coins to open the great hearth's gate
+- `price_woodcutter`: coins to hire the woodcutter (woodpile -> the fire)
+- `price_icefisher`: coins to hire the ice fisher (ice hole -> the hearth)
+- `wood_time`: seconds to chop 1 bundle of firewood
+- `ice_time`: seconds to catch 1 fish through the ice hole
+- `hotpot_time`: seconds for the hearth cook to turn 1 fish into hot pots (includes cut_time)
+- `hotpots_per_fish`: hot pots from 1 fish
+- `hotpot_price`: coins per hot pot
+- `hotpot_limit`: hot pots waiting on the hot-pot table
+- `fuel_max`: most seconds of burn the fire holds
+- `fuel_start`: seconds of burn the fire has when the gate opens
+- `wood_burn`: seconds of burn one bundle of firewood adds (the fire takes a bundle only when it fits under fuel_max)

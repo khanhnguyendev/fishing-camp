@@ -1,9 +1,9 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { burnFuel, carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
-import { RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
+import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
 const v = (k: keyof typeof config): number => (config[k] as { value: number }).value;
 const carryTuning = {
@@ -34,6 +34,14 @@ describe('the core loop pays', () => {
 
   it('the rice field gate costs about 4x the grill yard gate, as a new zone should', () => {
     const ratio = v('price_gate3') / v('price_gate');
+    expect(ratio).toBeGreaterThanOrEqual(3);
+    expect(ratio).toBeLessThanOrEqual(6);
+  });
+
+  it('a fish at the great hearth earns more than a rice-ball pair, and its gate costs about 4x the last', () => {
+    const riceballs = v('riceballs_per_pair') * v('riceball_price'), hotpots = v('hotpots_per_fish') * v('hotpot_price');
+    expect(hotpots).toBeGreaterThan(riceballs);
+    const ratio = v('price_gate4') / v('price_gate3');
     expect(ratio).toBeGreaterThanOrEqual(3);
     expect(ratio).toBeLessThanOrEqual(6);
   });
@@ -101,6 +109,20 @@ describe('visitOutcome', () => {
   });
 });
 
+describe('the hearth fire', () => {
+  it('burns down second by second and never below zero', () => {
+    expect(burnFuel(10, 1)).toBe(9);
+    expect(burnFuel(0.5, 1)).toBe(0);
+  });
+
+  it('takes a bundle of firewood only when it fits under its most', () => {
+    const max = v('fuel_max'), burn = v('wood_burn');
+    expect(wantsLog(max - burn, max, burn)).toBe(true);
+    expect(wantsLog(max - burn + 1, max, burn)).toBe(false);
+    expect(v('fuel_start')).toBeLessThanOrEqual(max);
+  });
+});
+
 describe('offlineEarnings', () => {
   it('pays the measured rate for the time away, capped', () => {
     const cap = v('offline_cap');
@@ -153,6 +175,23 @@ describe('ground', () => {
     expect(walkableAt(10, 8.3, true, true)).toBe(false); // the fence beside it
     expect(inZone3(14, 14)).toBe(true);
     expect(inZone3(14, 0)).toBe(false);
+  });
+
+  it('no price tile overlaps a great hearth standing tile', () => {
+    for (const u of UNLOCKS) for (const t of Object.values(HEARTH)) {
+      const dx = u.x - t.x, dz = u.z - t.z, reach = ((u.size ?? 1.7) + STAND_SIZE) / 2;
+      const apart = Math.abs(dx - dz) * Math.SQRT1_2 >= reach || Math.abs(dx + dz) * Math.SQRT1_2 >= reach;
+      expect(apart, `${u.id} overlaps the hearth tile at ${t.x},${t.z}`).toBe(true);
+    }
+  });
+
+  it('the great hearth opens only with its own gate, through the rice field', () => {
+    expect(walkableAt(14, 26, true, true, false)).toBe(false);
+    expect(walkableAt(14, 26, true, true, true)).toBe(true);
+    expect(walkableAt(14, 20.6, true, true, true)).toBe(true); // the gate passage
+    expect(walkableAt(10, 20.6, true, true, true)).toBe(false); // the fence beside it
+    expect(inZone4(14, 26)).toBe(true);
+    expect(inZone4(14, 14)).toBe(false);
   });
 
   it('the grill yard is walkable only once the gate is open', () => {

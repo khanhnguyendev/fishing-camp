@@ -16,6 +16,9 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'gate3', kind: 'zone', label: 'RICE FIELD', price: 'price_gate3', x: 14, z: 6.0, req: ['gate'], focus: [14, 14] },
   { id: 'farmer', kind: 'hire', label: 'FARMER', price: 'price_farmer', x: 20.4, z: 15.2, size: 1.2, req: ['gate3'], focus: [19.2, 12] },
   { id: 'carrier3', kind: 'hire', label: 'CARRIER', price: 'price_carrier3', x: 10.4, z: 15.6, size: 1.2, req: ['gate3'], focus: [10.5, 15] },
+  { id: 'gate4', kind: 'zone', label: 'GREAT HEARTH', price: 'price_gate4', x: 14, z: 18.8, req: ['gate3'], focus: [14, 26.5] },
+  { id: 'woodcutter', kind: 'hire', label: 'WOODCUTTER', price: 'price_woodcutter', x: 20.2, z: 26.4, size: 1.2, req: ['gate4'], focus: [19.4, 23.6] },
+  { id: 'icefisher', kind: 'hire', label: 'FISHER', price: 'price_icefisher', x: 19.8, z: 31.4, size: 1.2, req: ['gate4'], focus: [19.2, 29.6] },
   { id: 'pondfisher', kind: 'hire', label: 'FISHER', price: 'price_pondfisher', x: 16.4, z: 16.4, size: 1.2, req: ['gate3'], focus: [18.4, 18] },
 ];
 
@@ -36,4 +39,16 @@ export const RICE = {
   stationDrop: { x: 13.8, z: 12.2 },
   /** Pick up rice balls here. */
   pickup: { x: 12.2, z: 16.9 },
+} as const;
+
+/** Zone 4's working spots (the great hearth): where things are, in metres. */
+export const HEARTH = {
+  /** Stand here to chop firewood at the woodpile. */
+  woodTile: { x: 17.6, z: 24.4 },
+  /** Stand here to fish through the ice. */
+  iceTile: { x: 17.2, z: 30.4 },
+  /** Drop fish and firewood here for the hearth. */
+  drop: { x: 14, z: 23.6 },
+  /** Pick up hot pots here. */
+  pickup: { x: 12.0, z: 30.2 },
 } as const;

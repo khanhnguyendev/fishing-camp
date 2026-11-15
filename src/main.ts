@@ -8,8 +8,8 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
-import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE } from './game/unlocks';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog } from './game/rules';
+import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
 const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
@@ -106,6 +106,8 @@ const ROLES = {
   farmer:    { tunic: '#3f5aa8', pants: '#5a4636', hair: '#2b1d16', belt: '#c99a52' },
   carrier:   { tunic: '#c9773a', pants: '#4a3b2c', hair: '#2b1d16', belt: '#f2c94c' },
   general:   { tunic: '#8e1f1f', pants: '#2b2b35', hair: '#20150f', belt: '#e1b23a' },
+  hearthcook: { tunic: '#6b4a8a', pants: '#3a2c28', hair: '#20150f', belt: '#e1b23a' },
+  woodcutter: { tunic: '#7a4a2a', pants: '#3a3a42', hair: '#20150f', belt: '#3a3a42' },
 };
 const TORSO = new THREE.CylinderGeometry(0.25, 0.33, 0.52, 8);
 const HEAD = new THREE.SphereGeometry(0.4, 10, 8);
@@ -147,6 +149,12 @@ function makeChar(role: string) {
     add(head, G.cyl, '#f6f0dc', 0, 0.36, -0.02, -0.12, 0, 0, 1.05, 0.09, 1.05); add(head, G.sph, '#c8402e', 0, 0.44, -0.02, 0, 0, 0, 0.18);
     add(body, G.box, '#c8402e', 0, 0.55, 0.27, -0.12, 0, 0, 0.44, 0.44, 0.04);
     add(armR, G.box, '#d9b77a', 0, -0.62, 0, 0, 0, 0, 0.05, 0.5, 0.05); add(armR, G.box, '#d9b77a', 0, -0.92, 0, 0, 0, 0, 0.16, 0.2, 0.04);
+  } else if (role === 'hearthcook') { // a fur hat with ear flaps and a long ladle
+    add(head, G.cyl, '#e9e4d6', 0, 0.3, -0.02, -0.1, 0, 0, 0.92, 0.32, 0.92); add(head, G.sph, '#e9e4d6', -0.38, 0.0, 0, 0, 0, 0, 0.22, 0.42, 0.22); add(head, G.sph, '#e9e4d6', 0.38, 0.0, 0, 0, 0, 0, 0.22, 0.42, 0.22);
+    add(armR, G.cyl6, '#8a5a2b', 0, -0.75, 0, 0, 0, 0, 0.06, 0.85, 0.06); add(armR, new THREE.SphereGeometry(0.15, 8, 4, 0, 2 * PI, PI / 2, PI / 2), '#55555f', 0, -1.15, 0);
+  } else if (role === 'woodcutter') { // a red knit cap with a bobble and an axe in hand
+    add(head, G.hemi, '#c8302a', 0, 0.08, -0.02, -0.25, 0, 0, 0.9, 0.85, 0.9); add(head, G.sph, '#f6f0dc', 0, 0.5, -0.12, 0, 0, 0, 0.2);
+    add(armR, G.cyl6, '#8a5a2b', 0, -0.58, 0.05, 0, 0, 0, 0.06, 0.6, 0.06); add(armR, G.box, '#b9bcc4', 0.12, -0.82, 0.05, 0, 0, 0, 0.2, 0.16, 0.04);
   } else if (role === 'general') { // a red cape, gold-trimmed armour and a helmet with tall horns
     add(body, G.box, '#c8302a', 0, 0.72, -0.3, 0.15, 0, 0, 0.7, 0.85, 0.05);
     add(body, G.box, '#e1b23a', -0.34, 0.9, 0, 0, 0, 0.35, 0.26, 0.12, 0.34); add(body, G.box, '#e1b23a', 0.34, 0.9, 0, 0, 0, -0.35, 0.26, 0.12, 0.34);
@@ -215,6 +223,20 @@ function cavalryGeo() {
   return bake(P);
 }
 const CAVALRY_GEO = cavalryGeo();
+/** Zone 4's customers: generals in red capes and horned helmets, drawn in bulk (faces +z). */
+function generalsGeo() {
+  const A = '#8e1f1f', G2 = '#e1b23a', P = [];
+  P.push([G.box, '#2b2b35', mx(-0.13, 0.22, 0, 0, 0, 0, 0.19, 0.44, 0.21)], [G.box, '#2b2b35', mx(0.13, 0.22, 0, 0, 0, 0, 0.19, 0.44, 0.21)]);
+  P.push([new THREE.CylinderGeometry(0.3, 0.38, 0.62, 8), A, mx(0, 0.74, 0)], [G.box, '#c8302a', mx(0, 0.82, -0.34, 0.15, 0, 0, 0.76, 0.95, 0.05)]);
+  P.push([G.box, G2, mx(-0.38, 1.0, 0, 0, 0, 0.35, 0.28, 0.13, 0.36)], [G.box, G2, mx(0.38, 1.0, 0, 0, 0, -0.35, 0.28, 0.13, 0.36)]);
+  P.push([G.sph, SKIN, mx(0, 1.42, 0, 0, 0, 0, 0.84)]);
+  P.push([G.sph, '#1d1714', mx(-0.15, 1.42, 0.38, 0, 0, 0, 0.1, 0.12, 0.08)], [G.sph, '#1d1714', mx(0.15, 1.42, 0.38, 0, 0, 0, 0.1, 0.12, 0.08)]);
+  P.push([G.box, '#20150f', mx(0, 1.28, 0.39, 0, 0, 0, 0.3, 0.06, 0.04)]); // moustache
+  P.push([G.hemi, '#2b2b35', mx(0, 1.48, -0.03, -0.3, 0, 0, 0.94, 0.86, 0.94)], [new THREE.TorusGeometry(0.44, 0.05, 4, 14, PI), G2, mx(0, 1.92, 0.08, -0.15, 0, 0)]);
+  P.push([G.cone4, G2, mx(0, 2.08, 0.15, 0, 0, 0, 0.2, 0.36, 0.08)]);
+  return bake(P);
+}
+const GENERALS_GEO = generalsGeo();
 const BOWL_BODY = new THREE.CylinderGeometry(0.24, 0.14, 0.17, 10);
 const RIM = new THREE.TorusGeometry(0.235, 0.025, 4, 14);
 function itemGeo(type: string, gold: boolean) {
@@ -236,14 +258,20 @@ function itemGeo(type: string, gold: boolean) {
   } else if (type === 'riceball') { // two rice-ball triangles on a leaf, wrapped in nori
     P.push([G.box, '#5fae45', mx(0, 0.015, 0, 0, 0, 0, 0.48, 0.03, 0.3)]);
     for (const x of [-0.11, 0.11]) P.push([new THREE.CylinderGeometry(0.13, 0.13, 0.11, 3), gold ? '#ffe9a0' : '#fbfaf3', mx(x, 0.085, 0, 0, PI / 6, 0)], [G.box, '#1f2a22', mx(x, 0.08, 0.06, 0, 0, 0, 0.12, 0.08, 0.02)]);
+  } else if (type === 'wood') { // a tied bundle of three logs
+    for (const [y, z] of [[0.07, -0.08], [0.07, 0.08], [0.19, 0]]) P.push([G.cyl6, '#8a5a35', mx(0, y, z, 0, 0, PI / 2, 0.14, 0.46, 0.14)], [G.cyl6, '#e2c08a', mx(0.235, y, z, 0, 0, PI / 2, 0.12, 0.01, 0.12)]);
+    P.push([G.box, '#c8402e', mx(0, 0.13, 0, 0, 0, 0, 0.05, 0.3, 0.32)]);
+  } else if (type === 'hotpot') { // a black clay pot of red broth with a wooden lid ajar
+    P.push([new THREE.CylinderGeometry(0.2, 0.16, 0.18, 10), '#2a2626', mx(0, 0.09, 0)], [G.cyl, gold ? '#ffd84d' : '#d8452e', mx(0, 0.18, 0, 0, 0, 0, 0.36, 0.01, 0.36)]);
+    P.push([G.cyl, '#a8743e', mx(0.06, 0.21, 0.04, 0.25, 0, 0, 0.3, 0.03, 0.3)], [G.box, '#5fae45', mx(-0.06, 0.19, -0.05, 0, 0.6, 0, 0.12, 0.02, 0.05)]);
   } else if (type === 'cash') {
     P.push([G.box, '#6cc35a', mx(0, 0.05, 0, 0, 0, 0, 0.38, 0.1, 0.22)], [G.box, '#f6d34a', mx(0, 0.05, 0, 0, 0, 0, 0.09, 0.11, 0.23)]);
   }
   return bake(P);
 }
-const ITEM_H: Record<string, number> = { fish: 0.28, bowl: 0.19, plate: 0.17, cash: 0.1, rice: 0.27, riceball: 0.15 };
+const ITEM_H: Record<string, number> = { fish: 0.28, bowl: 0.19, plate: 0.17, cash: 0.1, rice: 0.27, riceball: 0.15, wood: 0.26, hotpot: 0.22 };
 const ITEM_GEO: Record<string, Loose> = {};
-for (const t of ['fish', 'bowl', 'plate', 'cash', 'rice', 'riceball']) ITEM_GEO[t] = [itemGeo(t, false), itemGeo(t, true)];
+for (const t of ['fish', 'bowl', 'plate', 'cash', 'rice', 'riceball', 'wood', 'hotpot']) ITEM_GEO[t] = [itemGeo(t, false), itemGeo(t, true)];
 
 // ---- World state ----------------------------------------------------------------------------
 let scene: string, state: Loose, world: Loose, player: Loose, rods: Loose[], spots: Loose[], processors: Loose[], piles: Loose, counters: Loose[], tiles: Loose[], workers: Loose[], tweens: Loose[], pops: Loose[], floats: Loose[], belt: Loose, fx: Loose;
@@ -314,7 +342,7 @@ function splash(pos: Loose) {
 }
 
 // ---- Layout --------------------------------------------------------------------------------
-function walkable(x: number, z: number): boolean { return walkableAt(x, z, state.gateOpen, state.gate3Open); }
+function walkable(x: number, z: number): boolean { return walkableAt(x, z, state.gateOpen, state.gate3Open, state.gate4Open); }
 
 // ---- Tiles drawn on the ground ----------------------------------------------------------------
 const STAND = canvasTex(128, 128, (g: Loose) => {
@@ -371,7 +399,10 @@ function bubbleTex(dish: string, n: number) {
   return (BUBBLES[key] = canvasTex(128, 128, (g: Loose) => {
     g.fillStyle = '#ffffff'; rrect(g, 10, 8, 108, 90, 26); g.fill();
     g.beginPath(); g.moveTo(54, 96); g.lineTo(64, 120); g.lineTo(76, 96); g.fill();
-    if (dish === 'riceball') {
+    if (dish === 'hotpot') {
+      g.fillStyle = '#2a2626'; g.beginPath(); g.moveTo(26, 40); g.lineTo(80, 40); g.lineTo(72, 78); g.lineTo(34, 78); g.closePath(); g.fill();
+      g.fillStyle = '#d8452e'; g.fillRect(28, 38, 50, 8); g.fillStyle = '#e9e4d6'; g.fillRect(40, 18, 6, 14); g.fillRect(58, 14, 6, 18);
+    } else if (dish === 'riceball') {
       g.fillStyle = '#5fae45'; g.fillRect(16, 66, 74, 10);
       for (const x of [34, 70]) { g.fillStyle = '#fbfaf3'; g.beginPath(); g.moveTo(x, 26); g.lineTo(x + 20, 64); g.lineTo(x - 20, 64); g.closePath(); g.fill(); g.fillStyle = '#1f2a22'; g.fillRect(x - 9, 48, 18, 16); }
     } else if (dish === 'bowl') {
@@ -416,7 +447,9 @@ function buildEnvironment() {
   const fence = (x0: Loose, z0: Loose, x1: Loose, z1: Loose) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0))); for (let i = 0; i <= n; i++) post(x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n); rail(x0, z0, x1, z1); };
   fence(-6, -9.3, -6, 0.3); fence(-6, 4.7, -6, 8.3); fence(-6, 8.3, 12.4, 8.3); fence(15.6, 8.3, 21.6, 8.3);
   // rice field fences: west (the cavalry counter leaves a gap), south, east
-  fence(7, 8.3, 7, 10.8); fence(7, 15.2, 7, 20.6); fence(7, 20.6, 21.6, 20.6); fence(21.6, 8.3, 21.6, 20.6);
+  fence(7, 8.3, 7, 10.8); fence(7, 15.2, 7, 20.6); fence(7, 20.6, 12.4, 20.6); fence(15.6, 20.6, 21.6, 20.6); fence(21.6, 8.3, 21.6, 20.6);
+  // the great hearth's fences: west (its counter leaves a gap), south, east
+  fence(7, 20.6, 7, 24.2); fence(7, 28.8, 7, 33); fence(7, 33, 21.6, 33); fence(21.6, 20.6, 21.6, 33);
   fence(7, -9.3, 7, -2.1); fence(7, 2.1, 7, 8.3); fence(21.6, -9.3, 21.6, 0.3); fence(21.6, 4.7, 21.6, 8.3);
   // gate doors with a padlock sign
   fx.doors = [];
@@ -438,6 +471,21 @@ function buildEnvironment() {
   fx.lock3 = new THREE.Group(); fx.lock3.position.set(14, 0.85, 8.45); world.add(fx.lock3);
   add(fx.lock3, G.box, '#f2c230', 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.18); add(fx.lock3, new THREE.TorusGeometry(0.2, 0.06, 5, 12, PI), '#c9c9cf', 0, 0.25, 0);
   fx.cover3 = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 14.3, 0.03, 14.45, 0, 0, 0, 14.6, 0.02, 12.3);
+  // the great hearth's yard: snowy planks, a lifting barrier with a padlock, and a shade until it opens
+  const snowCols = ['#eef2f5', '#e1e8ee', '#f4f7f9', '#e6ecf1'];
+  for (let i = 0; i < 12; i++) add(world, G.box, snowCols[i % 4], 14.3, -0.15, 21.1 + i + 0.5, 0, 0, 0, 14.6, 0.3, 0.97);
+  fx.bar4 = new THREE.Group(); fx.bar4.position.set(12.4, 0.85, 20.6); world.add(fx.bar4);
+  add(fx.bar4, G.cyl6, '#6b4220', 1.6, 0, 0, 0, 0, PI / 2, 0.22, 3.2, 0.22);
+  for (const x of [0.6, 1.6, 2.6]) add(fx.bar4, G.box, '#2f5d8a', x, 0, 0, 0, 0, 0, 0.18, 0.26, 0.26);
+  fx.lock4 = new THREE.Group(); fx.lock4.position.set(14, 0.85, 20.75); world.add(fx.lock4);
+  add(fx.lock4, G.box, '#f2c230', 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.18); add(fx.lock4, new THREE.TorusGeometry(0.2, 0.06, 5, 12, PI), '#c9c9cf', 0, 0.25, 0);
+  fx.cover4 = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 14.3, 0.03, 26.85, 0, 0, 0, 14.6, 0.02, 12.3);
+  // snowy pines beyond the hearth
+  const pine = (x: number, z: number, sc: number) => { const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(sc); world.add(g);
+    add(g, G.cyl6, '#5a3a22', 0, 0.6, 0, 0, 0, 0, 0.3, 1.2, 0.3);
+    for (let k = 0; k < 3; k++) { add(g, new THREE.ConeGeometry(1.1 - k * 0.28, 1.2, 7), '#2f6b4a', 0, 1.4 + k * 0.75, 0); add(g, new THREE.ConeGeometry(0.75 - k * 0.2, 0.45, 7), '#f4f7f9', 0, 1.82 + k * 0.75, 0); }
+    blob(g, 1.1); };
+  for (const [x, z, sc] of [[23.5, 22, 1.1], [24.5, 26, 1.3], [23.2, 30, 1.0], [24.8, 33.5, 1.2], [9, 35, 1.1], [15, 35.5, 1.3], [20, 35, 1.0]]) pine(x, z, sc);
   // locked yard shade
   fx.cover = add(world, G.box, new THREE.MeshBasicMaterial({ color: '#2b2340', transparent: true, opacity: 0.42, depthWrite: false }), 14.3, 0.03, -0.5, 0, 0, 0, 14.6, 0.02, 18.0);
   // blossom trees
@@ -448,11 +496,11 @@ function buildEnvironment() {
     add(g, G.ico, '#fbc4d8', -0.6, 2.4, -0.2, 0.2, 0.6, 0, 1.5); add(g, G.ico, '#f7a8c6', 0.1, 3.2, -0.1, 0.3, 0.1, 0.2, 1.2);
     blob(g, 1.4);
   };
-  for (let i = 0; i < 14; i++) tree(rr(-20, 34), rr(22.5, 28), rr(0.85, 1.25));
+  for (let i = 0; i < 14; i++) tree(rr(-20, 4), rr(35, 41), rr(0.85, 1.25));
   for (let i = 0; i < 12; i++) tree(rr(-25, 45), rr(-30, -27), rr(1.0, 1.4));
   tree(-14, -12, 1.2); tree(30, -11.5, 1.1);
   // grass tufts and stones around the deck
-  for (let i = 0; i < 40; i++) add(world, G.cone4, i % 3 ? '#5fae45' : '#6fbd52', rr(-30, 45), -0.05, rr(21.2, 27), 0, rr(0, 3), 0, 0.3, rr(0.3, 0.6), 0.3);
+  for (let i = 0; i < 40; i++) add(world, G.cone4, i % 3 ? '#5fae45' : '#6fbd52', rr(-30, 45), -0.05, rr(34.5, 40), 0, rr(0, 3), 0, 0.3, rr(0.3, 0.6), 0.3);
 }
 function buildRods() {
   rods = [];
@@ -572,7 +620,7 @@ function updateSpots(dt: number) {
         const gold = sp.item === 'fish' && state.goldLeft > 0, it = newItem(sp.item, gold);
         occ.stack.push(it); const c = occ;
         fly(it, sp.from, () => c.slot(c.stack.indexOf(it)), 0.45, 1.8);
-        if (sp.item === 'fish') splash(sp.from); else puffs(sp.from, 4, '#d9f0a0', 0.8);
+        if (sp.item === 'fish') splash(sp.from); else puffs(sp.from, 4, sp.puff || '#d9f0a0', 0.8);
         if (occ.isPlayer || occ.pos.distanceTo(player.pos) < 12) { if (sp.item === 'fish') sfx.splash(); else sfx.chop(); }
         if (occ.isPlayer) buzz(20);
         sp.hop = 1;
@@ -583,6 +631,63 @@ function updateSpots(dt: number) {
     sp.hop = Math.max(0, sp.hop - dt * 3);
     sp.plants.forEach((pl: Loose, i: number) => { pl.rotation.z = occ ? Math.sin(state.t * 14 + i) * 0.18 : 0; pl.scale.y = 1 - sp.hop * 0.5; });
   }
+}
+/** Zone 4: the woodpile, the ice hole, the great hearth with its fire and cook, and the hot-pot table. */
+function buildHearth() {
+  fx.z4 = new THREE.Group(); world.add(fx.z4); fx.z4.visible = false;
+  // the woodpile: stacked logs and a chopping stump
+  const wp = new THREE.Group(); wp.position.set(19.4, 0, 23.0); fx.z4.add(wp);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4 - r; c++) add(wp, G.cyl6, '#8a5a35', -0.6 + c * 0.42 + r * 0.21, 0.2 + r * 0.36, 0, PI / 2, 0, 0, 0.4, 1.6, 0.4);
+  add(wp, G.cyl, '#a8743e', -1.2, 0.3, 1.0, 0, 0, 0, 0.7, 0.6, 0.7); add(wp, G.cyl, '#f4f7f9', 0, 1.25, 0, 0, 0, 0, 1.4, 0.08, 1.7);
+  // the ice hole: a frozen disc with a dark hole and a little fishing stool
+  const ih = new THREE.Group(); ih.position.set(19.2, 0, 29.6); fx.z4.add(ih);
+  add(ih, new THREE.CylinderGeometry(1.5, 1.5, 0.06, 16), '#cfe8f3', 0, 0.03, 0); add(ih, new THREE.CylinderGeometry(0.42, 0.42, 0.07, 12), '#1f4e6e', 0, 0.04, 0);
+  add(ih, G.box, '#8a5a35', -0.9, 0.2, 0.7, 0, 0, 0, 0.4, 0.4, 0.4);
+  spots.push({ name: 'wood', item: 'wood', timeKey: 'wood_time', tile: new V3(HEARTH.woodTile.x, 0, HEARTH.woodTile.z), from: new V3(19.0, 0.6, 23.6), mode: 'chop', group: wp, plants: [],
+    ring: hearthRing(HEARTH.woodTile), prog: 0, owner: null, active: false, hop: 0, puff: '#c99a52' });
+  spots.push({ name: 'ice', item: 'fish', timeKey: 'ice_time', tile: new V3(HEARTH.iceTile.x, 0, HEARTH.iceTile.z), from: new V3(19.2, 0.2, 29.6), mode: 'pull', group: ih, plants: [],
+    ring: hearthRing(HEARTH.iceTile), prog: 0, owner: null, active: false, hop: 0 });
+  // the great hearth: a stone ring, a fire, a big cauldron, and a fuel bar above
+  const hh = new THREE.Group(); hh.position.set(14, 0, 26.5); fx.z4.add(hh);
+  for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * PI; add(hh, G.ico, k % 2 ? '#8f8a86' : '#a19b96', Math.cos(a) * 1.15, 0.25, Math.sin(a) * 1.15, k, k * 0.7, 0, 0.6); }
+  fx.flames = new THREE.Group(); hh.add(fx.flames);
+  add(fx.flames, G.cone4, '#ff7a1f', 0, 0.55, 0, 0, 0.3, 0, 1.1, 0.9, 1.1); add(fx.flames, G.cone4, '#ffd34d', 0.1, 0.5, -0.1, 0, 1.1, 0, 0.6, 0.7, 0.6);
+  add(hh, new THREE.CylinderGeometry(0.75, 0.6, 0.7, 12), '#2a2626', 0, 1.25, 0); add(hh, G.cyl, '#d8452e', 0, 1.58, 0, 0, 0, 0, 1.3, 0.02, 1.3);
+  for (const s of [-1, 1]) add(hh, G.cyl6, '#55555f', s * 0.95, 1.0, 0, 0, 0, s * 0.25, 0.08, 1.8, 0.08);
+  fx.fuelBg = add(hh, G.box, '#3a2c28', 0, 3.0, 0, 0, PI / 4, 0, 2.0, 0.18, 0.12);
+  fx.fuelBar = add(hh, G.box, '#ff9b2f', 0, 3.0, 0.02, 0, PI / 4, 0, 1.9, 0.12, 0.13);
+  blob(hh, 1.6);
+  const ot = new THREE.Group(); fx.z4.add(ot);
+  add(ot, G.box, '#9a6235', 13.8, 0.22, 29.4, 0, 0, 0, 1.4, 0.44, 1.1); add(ot, G.box, '#c98d55', 13.8, 0.46, 29.4, 0, 0, 0, 1.5, 0.05, 1.2);
+  fx.z4tiles = [standTile(HEARTH.drop.x, HEARTH.drop.z), standTile(HEARTH.pickup.x, HEARTH.pickup.z), standTile(HEARTH.woodTile.x, HEARTH.woodTile.z), standTile(HEARTH.iceTile.x, HEARTH.iceTile.z)];
+  fx.z4tiles.forEach((t: Loose) => (t.visible = false));
+  piles.hearthFish = makePile('fish', 'board_limit', (i: Loose) => new V3(12.6, 0.12 + (i % 5) * ITEM_H.fish, 24.9 + (i / 5 | 0) * 0.4));
+  piles.firewood = makePile('wood', 'board_limit', (i: Loose) => new V3(15.5 + (i / 5 | 0) * 0.5, 0.12 + (i % 5) * ITEM_H.wood, 25.1));
+  piles.hotpots = makePile('hotpot', 'hotpot_limit', (i: Loose) => { const c = i / 6 | 0; return new V3(13.8 + ((c % 2) - 0.5) * 0.6, 0.5 + (i % 6) * ITEM_H.hotpot, 29.4 + ((c / 2 | 0) - 1) * 0.36); });
+  fx.hearthcook = makeChar('hearthcook'); fx.hearthcook.group.position.set(12.4, 0, 26.5); fx.hearthcook.group.rotation.y = PI / 2; fx.z4.add(fx.hearthcook.group); blob(fx.hearthcook.group, 0.5);
+  processors.push({ name: 'hearth', active: false, input: piles.hearthFish, fuelPile: piles.firewood, out: piles.hotpots, drop: new V3(HEARTH.drop.x, 0, HEARTH.drop.z), work: new V3(13.3, 1.0, 26.5),
+    pots: () => [new V3(14, 1.6, 26.5)], timeKey: 'hotpot_time', perKey: 'hotpots_per_fish', outType: 'hotpot', chef: fx.hearthcook, slots: [], boardBusy: false,
+    canWork: () => state.fuel > 0 });
+}
+function hearthRing(tile: Loose) {
+  const ring = groundPlane(fx.z4, tile.x, tile.z, 1.0, new THREE.MeshBasicMaterial({ color: '#fff27a', transparent: true, opacity: 0.8, depthWrite: false }), 0.035);
+  ring.scale.setScalar(0.001); return ring;
+}
+/** The hearth's fire: it burns down every second; it takes a bundle of firewood from its pile whenever one fits. */
+function updateHearth(dt: number) {
+  if (!state.gate4Open) return;
+  state.fuel = burnFuel(state.fuel, dt);
+  const log = piles.firewood.top();
+  if (log && !fx.logFlying && wantsLog(state.fuel, tune.fuel_max, tune.wood_burn)) {
+    piles.firewood.take(log); fx.logFlying = true;
+    fly(log, log.mesh.position, () => new V3(14, 0.5, 26.5), 0.35, 0.9, () => { release(log); fx.logFlying = false; state.fuel = Math.min(tune.fuel_max, state.fuel + tune.wood_burn); puffs(new V3(14, 1.0, 26.5), 4, '#ffb347', 0.8); });
+  }
+  // look: flames grow with the fuel and flicker; the bar above shows what is left
+  const k = state.fuel / tune.fuel_max, lit = state.fuel > 0;
+  fx.flames.visible = lit; fx.flames.scale.set(0.5 + k * 0.7, (0.5 + k * 0.8) * (1 + Math.sin(state.t * 13) * 0.08), 0.5 + k * 0.7);
+  fx.fuelBar.scale.x = Math.max(0.001, 1.9 * k); fx.fuelBar.material = mat(k < 0.25 ? '#d8452e' : '#ff9b2f');
+  fx.smokeT = (fx.smokeT || 0) - dt;
+  if (fx.smokeT <= 0) { fx.smokeT = lit ? 0.5 : 0.9; particle('puff', new V3(14 + rr(-0.3, 0.3), lit ? 2.0 : 0.8, 26.5), new V3(0, 1.0, 0), 1.2, lit ? '#e9e4d6' : '#8a8a8a', 0.8); }
 }
 function buildCounters() {
   counters = [];
@@ -616,6 +721,8 @@ function buildCounters() {
   mk({ ...foot, zone: 2, cx: 21.0, cz: 2.5, face: -1, dish: 'plate', priceKey: 'plate_price', banner: '#e1b23a', geo: SOLDIER_GEO[1], rows: 11 });
   mk({ zone: 3, cx: 7.4, cz: 13, face: 1, dish: 'riceball', priceKey: 'riceball_price', banner: '#2f5d8a', geo: CAVALRY_GEO,
     rows: 7, cols: 8, rowGap: 2.0, colGap: 1.4, z0: 9.4, front: 1.6, slotGap: 1.3, bubY: 3.6 });
+  mk({ zone: 4, cx: 7.4, cz: 26.5, face: 1, dish: 'hotpot', priceKey: 'hotpot_price', banner: '#6b4a8a', geo: GENERALS_GEO,
+    rows: 6, cols: 9, rowGap: 1.3, colGap: 1.15, z0: 21.8, front: 1.35, slotGap: 1.1, bubY: 3.0 });
 }
 function buildBelt() {
   belt = { on: false, items: [], cd: 0, x0: 3.3, x1: -4.6, z: 2.6, y: 0.5 };
@@ -682,6 +789,7 @@ function unlock(t: Loose, instant: boolean) {
   const hires: Record<string, Loose> = {
     fisher1: [rods[0], processors[0], 'fish', 'fisher'], fisher2: [rods[1], processors[0], 'fish', 'fisher'], fisher3: [rods[2], processors[0], 'fish', 'fisher'],
     grillfisher: [rods[3], processors[1], 'fish', 'fisher'], farmer: [spots[0], processors[2], 'rice', 'farmer'], pondfisher: [spots[1], processors[2], 'fish', 'fisher'],
+    woodcutter: [spots[2], processors[3], 'wood', 'woodcutter'], icefisher: [spots[3], processors[3], 'fish', 'fisher'],
   };
   if (hires[id]) {
     const [spot, proc, item, role] = hires[id];
@@ -708,6 +816,11 @@ function unlock(t: Loose, instant: boolean) {
     state.gateOpen = true; processors[1].active = true; counters[1].active = true; rods[3].active = true;
     rods[3].tileMesh.visible = true; fx.z2tiles.forEach((m: Loose) => (m.visible = true));
     if (instant) { fx.z2.visible = true; rods[3].g.visible = true; state.gateAnim = 1; } else { pop(fx.z2, 0.7); pop(rods[3].g, 0.7); }
+  }
+  if (id === 'gate4') {
+    state.gate4Open = true; state.fuel = tune.fuel_start; processors[3].active = true; counters[3].active = true; spots[2].active = true; spots[3].active = true;
+    fx.z4tiles.forEach((m: Loose) => (m.visible = true));
+    if (instant) { fx.z4.visible = true; state.gate4Anim = 1; } else pop(fx.z4, 0.7);
   }
   if (id === 'gate3') {
     state.gate3Open = true; processors[2].active = true; counters[2].active = true; spots.forEach((sp: Loose) => (sp.active = true));
@@ -783,6 +896,7 @@ function updateProcessors(dt: number) {
   for (const pr of processors) {
     if (!pr.active) continue;
     const pots = pr.pots(), per = tune[pr.perKey], cut = Math.min(tune.cut_time, tune[pr.timeKey] * 0.5);
+    const halted = pr.canWork ? !pr.canWork() : false; // the great hearth cooks only while its fire burns
     while (pr.slots.length < pots.length) pr.slots.push({ cur: null, t: 0, phase: null });
     pr.chef.mode = null;
     pr.slots.forEach((sl: Loose, i: Loose) => {
@@ -790,14 +904,14 @@ function updateProcessors(dt: number) {
       if (!sl.cur) {
         const busy = pr.slots.filter((q: Loose) => q.cur).length, f = pr.input.top();
         const f2 = pr.input2 ? pr.input2.top() : null; // a dish of two ingredients waits for both
-        if (f && (!pr.input2 || f2) && !pr.boardBusy && pr.out.items.length + per * (busy + 1) <= pr.out.limit()) {
+        if (f && (!pr.input2 || f2) && !halted && !pr.boardBusy && pr.out.items.length + per * (busy + 1) <= pr.out.limit()) {
           pr.input.take(f); sl.cur = f; sl.t = 0; sl.phase = 'cut'; pr.boardBusy = true; pr.chop = 0;
           fly(f, f.mesh.position, () => pr.work, 0.18, 0.35);
           if (f2) { pr.input2.take(f2); sl.cur2 = f2; fly(f2, f2.mesh.position, () => pr.work.clone().add(new V3(0.3, 0.1, 0)), 0.18, 0.35); }
         }
         return;
       }
-      if (sl.cur.flying) return;
+      if (sl.cur.flying || halted) return;
       sl.t += dt;
       if (sl.phase === 'cut') {
         pr.chef.mode = 'chop';
@@ -858,6 +972,7 @@ function updateCounters(dt: number) {
             floats.push({ p: head.clone().add(new V3(0, 0.8, 0)), txt: '+' + value, t: 0, col: top.gold ? '#ffe27a' : '#ffffff' });
             if (slot.want <= 0) { slot.phase = 'out'; if (head.distanceTo(player.pos) < 14) sfx.cheer(); }
             if (c.zone === 2 && !state.goalDone) { state.goalDone = true; state.goalTimer = 1.4; state.gained = 'The camp is running!'; state.resultLine = 'Grill yard open, first sushi sold'; events.push({ type: 'goal' }); save(); }
+            if (c.zone === 4 && !state.goal4Done) { state.goal4Done = true; state.goalTimer = 1.4; state.gained = 'The great hearth is lit!'; state.resultLine = 'Great hearth open, first hot pot sold'; events.push({ type: 'goal4' }); save(); }
             if (c.zone === 3 && !state.goal3Done) { state.goal3Done = true; state.goalTimer = 1.4; state.gained = 'The rice field is running!'; state.resultLine = 'Rice field open, first rice ball sold'; events.push({ type: 'goal3' }); save(); }
           });
         }
@@ -995,7 +1110,7 @@ function updateWorkers(dt: number) {
     else if (w.state === 'toDrop') { if (moveTo(w, w.proc.drop, dt, tune.worker_speed)) w.state = 'drop'; }
     else if (w.state === 'drop') {
       w.vel.set(0, 0, 0);
-      const top = w.top(), pile = w.item === w.proc.input.type ? w.proc.input : w.proc.input2;
+      const top = w.top(), pile = w.item === w.proc.input.type ? w.proc.input : w.item === 'wood' ? w.proc.fuelPile : w.proc.input2;
       if (top && w.cd <= 0 && pile.items.length < pile.limit()) { w.cd = tune.pickup_interval * 2; giveTo(w, pile, top); }
       if (!w.stack.length) w.state = 'toRod';
     }
@@ -1038,12 +1153,12 @@ function updatePlayer(dt: number) {
   const top = player.top(), P = player.pos;
   for (const pr of processors) {
     if (!pr.active || !top || !inTile(P, pr.drop)) continue;
-    const pile = top.type === pr.input.type ? pr.input : pr.input2 && top.type === pr.input2.type ? pr.input2 : null;
+    const pile = top.type === pr.input.type ? pr.input : pr.input2 && top.type === pr.input2.type ? pr.input2 : pr.fuelPile && top.type === 'wood' ? pr.fuelPile : null;
     if (pile && pile.items.length < pile.limit()) {
       giveTo(player, pile, top); player.cd = tune.pickup_interval * 1.4; sfx.drop(state.streak++); state.streakT = 0.5; return;
     }
   }
-  const pick = [[piles.pot, new V3(3.3, 0, 1.35), true], [piles.sushi, new V3(16.6, 0, 0.75), state.gateOpen], [piles.riceballs, new V3(RICE.pickup.x, 0, RICE.pickup.z), state.gate3Open]];
+  const pick = [[piles.pot, new V3(3.3, 0, 1.35), true], [piles.sushi, new V3(16.6, 0, 0.75), state.gateOpen], [piles.riceballs, new V3(RICE.pickup.x, 0, RICE.pickup.z), state.gate3Open], [piles.hotpots, new V3(HEARTH.pickup.x, 0, HEARTH.pickup.z), state.gate4Open]];
   for (const [pile, at, ok] of pick) {
     if (ok && inTile(P, at) && pile.top() && player.canTake(pile.type)) { takeFrom(player, pile); player.cd = tune.pickup_interval; sfx.clack(state.streak++); state.streakT = 0.5; return; }
   }
@@ -1087,9 +1202,17 @@ function guideTarget() {
   const zone2 = player.pos.x > 7, zone3 = state.gate3Open && inZone3(player.pos.x, player.pos.z);
   if (top && (top.type === 'rice' || (top.type === 'fish' && zone3))) return processors[2].drop;
   if (top && top.type === 'riceball') return counters[2].drop;
+  const zone4 = state.gate4Open && inZone4(player.pos.x, player.pos.z);
+  if (top && (top.type === 'wood' || (top.type === 'fish' && zone4))) return processors[3].drop;
+  if (top && top.type === 'hotpot') return counters[3].drop;
   if (top && top.type === 'fish') return zone2 && state.gateOpen ? processors[1].drop : processors[0].drop;
   if (top && top.type === 'bowl') return belt.on && !zone2 ? null : counters[0].drop;
   if (top && top.type === 'plate') return counters[1].drop;
+  if (state.gate4Open && !state.goal4Done) {
+    if (piles.hotpots.top()) return new V3(HEARTH.pickup.x, 0, HEARTH.pickup.z);
+    if (state.fuel < tune.wood_burn && !piles.firewood.items.length && !spots[2].owner) return spots[2].tile;
+    if (!piles.hearthFish.items.length && !spots[3].owner) return spots[3].tile;
+  }
   if (state.gate3Open && !state.goal3Done) {
     if (piles.riceballs.top()) return new V3(RICE.pickup.x, 0, RICE.pickup.z);
     if (!piles.rice.items.length && !spots[0].owner) return spots[0].tile;
@@ -1109,7 +1232,7 @@ function guideTarget() {
 }
 const P0 = (p: Loose) => new V3(p.x, 0, p.z);
 function updateGuide(dt: number) {
-  const show = (state.playTime < tune.guide_time || (state.gateOpen && !state.goalDone) || (state.gate3Open && !state.goal3Done)) && scene === 'play' && !state.welcome;
+  const show = (state.playTime < tune.guide_time || (state.gateOpen && !state.goalDone) || (state.gate3Open && !state.goal3Done) || (state.gate4Open && !state.goal4Done)) && scene === 'play' && !state.welcome;
   const tgt = show ? guideTarget() : null;
   const near = tgt && Math.hypot(tgt.x - player.pos.x, tgt.z - player.pos.z) < 1.0;
   fx.arrow.visible = !!tgt && !near; fx.marker.visible = !!tgt;
@@ -1128,7 +1251,7 @@ function save() {
   try {
     const paid: Record<string, number> = {}; for (const t of tiles) if (!t.done && t.paid) paid[t.def.id] = t.paid;
     localStorage.setItem(SAVE_KEY, JSON.stringify({ wallet: state.wallet, done: state.done, paid, at: Date.now(), rate: state.autoRate,
-      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, earned: state.earned, goldNext: state.goldNext }));
+      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, goal4Done: state.goal4Done, fuel: state.fuel, earned: state.earned, goldNext: state.goldNext }));
   } catch (_) {}
 }
 function load() {
@@ -1136,7 +1259,7 @@ function load() {
   let s = null; try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (_) {}
   if (!s) return;
   state.wallet = s.wallet | 0; state.playTime = s.playTime || 0; state.goalDone = !!s.goalDone; state.earned = s.earned || 0; state.autoRate = s.rate || 0;
-  state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done;
+  state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done; state.goal4Done = !!s.goal4Done;
   state.generalNext = Math.max(tune.general_first, state.playTime + tune.general_min);
   for (const id of UNLOCKS.map((u: Loose) => u.id)) if ((s.done || []).includes(id)) unlock(tiles.find((t: Loose) => t.def.id === id), true);
   for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
@@ -1154,13 +1277,14 @@ function reset() {
   state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, fishSpeed: false, pot2: false, gateOpen: false, gateAnim: 0,
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
-    gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '' };
+    gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0 };
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
   const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-8, 20, 10); scene3.add(sun);
   fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0 };
-  buildEnvironment(); buildRods(); buildKitchen(); buildRiceField(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
+  buildEnvironment(); buildRods(); buildKitchen(); buildRiceField(); buildHearth(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
   fx.general = makeChar('general'); fx.general.group.scale.setScalar(1.35); fx.general.group.visible = false; world.add(fx.general.group); blob(fx.general.group, 0.6);
   fx.generalTex = canvasTex(160, 128, () => {}); fx.generalShown = -1;
   fx.generalBub = new THREE.Sprite(new THREE.SpriteMaterial({ map: fx.generalTex.t, depthTest: false, fog: false })); fx.generalBub.scale.set(1.9, 1.5, 1); fx.generalBub.renderOrder = 5; fx.generalBub.visible = false; world.add(fx.generalBub);
@@ -1169,6 +1293,7 @@ function reset() {
     if (state.pot2) o.push([4.3, -2, 0.85], [5.45, -2, 0.5]);
     if (state.gateOpen) o.push([14.2, -2.4, 1.1], [12.9, -2.4, 0.5], [16.6, -0.6, 0.8]);
     if (state.gate3Open) o.push([13.8, 14, 1.1], [12.4, 14, 0.5], [13.8, 16.3, 0.8], [19.15, 10.7, 1.6], [19.0, 17.6, 1.9]);
+    if (state.gate4Open) o.push([14, 26.5, 1.6], [12.4, 26.5, 0.5], [13.8, 29.4, 0.8], [19.4, 23.0, 1.3], [19.2, 29.6, 1.0]);
     return o;
   };
   const arrowShape = new THREE.Shape([[0, 0.62], [0.48, 0.05], [0.18, 0.05], [0.18, -0.5], [-0.18, -0.5], [-0.18, 0.05], [-0.48, 0.05]].map((p: Loose) => new THREE.Vector2(p[0], p[1])));
@@ -1182,7 +1307,7 @@ function reset() {
 }
 function tick3D(dt: number) { // the camp keeps running under every overlay
   state.t += dt;
-  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt);
+  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt); updateHearth(dt);
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
@@ -1196,11 +1321,14 @@ function tick3D(dt: number) { // the camp keeps running under every overlay
   if (state.gate3Open && state.gate3Anim < 1) state.gate3Anim = Math.min(1, state.gate3Anim + dt * 1.5);
   fx.bar.rotation.z = state.gate3Anim * 1.35; fx.lock3.visible = !state.gate3Open;
   fx.cover3.material.opacity = 0.42 * (1 - state.gate3Anim); fx.cover3.visible = state.gate3Anim < 1;
+  if (state.gate4Open && state.gate4Anim < 1) state.gate4Anim = Math.min(1, state.gate4Anim + dt * 1.5);
+  fx.bar4.rotation.z = state.gate4Anim * 1.35; fx.lock4.visible = !state.gate4Open;
+  fx.cover4.material.opacity = 0.42 * (1 - state.gate4Anim); fx.cover4.visible = state.gate4Anim < 1;
   // steam over working pots
   fx.steamT = (fx.steamT || 0) - dt;
   if (fx.steamT <= 0) { fx.steamT = 0.35; // steam only over a pot that is cooking
     for (const pr of processors) { const pots = pr.pots(); pr.slots.forEach((sl: Loose, i: Loose) => { if (sl.phase === 'cook' && sl.cur && pots[i])
-      particle('puff', pots[i].clone().add(new V3(rr(-0.2, 0.2), 0, 0)), new V3(0, 1.2, 0), 1.0, pr.name === 'grill' ? '#d8d4cf' : '#ffffff', 0.7); }); } }
+      particle('puff', pots[i].clone().add(new V3(rr(-0.2, 0.2), 0, 0)), new V3(0, 1.2, 0), 1.0, pr.name === 'grill' || pr.name === 'hearth' ? '#d8d4cf' : '#ffffff', 0.7); }); } }
   state.coinT -= dt; if (state.coinT <= 0) state.coinStreak = 0;
   for (let i = floats.length - 1; i >= 0; i--) { floats[i].t += dt; floats[i].p.y += dt * 1.2; if (floats[i].t > 0.9) floats.splice(i, 1); }
   // measured automated income, for offline earnings
@@ -1219,16 +1347,17 @@ function buildFigures() {
   const s = new THREE.Scene(); s.background = new THREE.Color('#cdeaf3');
   s.add(new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9)); const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-4, 10, 8); s.add(sun);
   const g = new THREE.Group(); s.add(g);
-  add(g, G.box, '#e8964a', 0, -0.15, 0.6, 0, 0, 0, 20, 0.3, 4.5);
+  add(g, G.box, '#e8964a', 0, -0.15, -1.4, 0, 0, 0, 27, 0.3, 11.5); // three rows: customers behind, workers, items in front
   const list: Loose[] = [];
-  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier']];
-  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-9.6 + i * 1.55, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
-  ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(2.8 + i * 1.9, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
-  { const c = makeChar('general'); c.group.scale.setScalar(1.35); c.group.position.set(6.5, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.6); list.push(['General', c.group.position.clone().add(new V3(0, 3.6, -0.6))]); }
-  { const m = new THREE.Mesh(CAVALRY_GEO, VMAT); m.position.set(8.6, 0, 0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Cavalry', m.position.clone().add(new V3(0, 4.0, -0.6))]); }
-  [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Rice sack', 'rice', 0], ['Rice balls', 'riceball', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {
-    const m = new THREE.Mesh(ITEM_GEO[t][gold], VMAT); m.position.set(-7.2 + i * 2.3, 0.02, 2.2); m.scale.setScalar(1.6); m.rotation.y = 0.5; g.add(m); list.push([name, m.position.clone()]); });
-  const cam = new THREE.PerspectiveCamera(34, W / H, 0.5, 100); cam.position.set(0, 8, 20.5); cam.lookAt(0, 1.2, 0.8);
+  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier'], ['hearthcook', 'Hearth cook'], ['woodcutter', 'Woodcutter']];
+  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-11.5 + i * 2.3, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
+  ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(-6.6 + i * 3.0, 0, -6.0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
+  { const c = makeChar('general'); c.group.scale.setScalar(1.35); c.group.position.set(-0.6, 0, -6.0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.6); list.push(['General', c.group.position.clone().add(new V3(0, 3.6, -0.6))]); }
+  { const m = new THREE.Mesh(GENERALS_GEO, VMAT); m.position.set(2.4, 0, -6.0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push(['Generals', m.position.clone().add(new V3(0, 2.9, -0.6))]); }
+  { const m = new THREE.Mesh(CAVALRY_GEO, VMAT); m.position.set(5.8, 0, -6.0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Cavalry', m.position.clone().add(new V3(0, 4.0, -0.6))]); }
+  [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Rice sack', 'rice', 0], ['Rice balls', 'riceball', 0], ['Firewood', 'wood', 0], ['Hot pot', 'hotpot', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {
+    const m = new THREE.Mesh(ITEM_GEO[t][gold], VMAT); m.position.set(-9.0 + i * 2.25, 0.02, 2.9); m.scale.setScalar(1.6); m.rotation.y = 0.5; g.add(m); list.push([name, m.position.clone()]); });
+  const cam = new THREE.PerspectiveCamera(34, W / H, 0.5, 100); cam.position.set(0, 16, 27); cam.lookAt(0, 1.0, -1.4);
   figs = { s, cam, list };
 }
 function project(p: Loose, cam: Loose = camera) { const v = p.clone().project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H, v.z]; }
@@ -1282,7 +1411,7 @@ const scenes: Record<string, Loose> = {
       if (!figs) buildFigures();
       figs.cam.aspect = W / H; figs.cam.updateProjectionMatrix(); renderer.render(figs.s, figs.cam); clearHud();
       text('Fishing Camp: figures', W / 2, 40, 30, '#ffffff');
-      for (const [name, p] of figs.list) { const [x, y] = project(p.clone().add(new V3(0, -0.35, 0.6)), figs.cam); text(name, x, y + 14, 18, '#ffffff'); }
+      for (const [name, p] of figs.list) { const [x, y] = project(p.clone().add(new V3(0, -0.35, 0.6)), figs.cam); text(name, x, y + 14, 15, '#ffffff'); }
     },
   },
   title: {
@@ -1356,6 +1485,7 @@ const scenes: Record<string, Loose> = {
 /** Which zone's music plays: the zone the player stands in (0 dock, 1 grill yard, 2 rice field). */
 function musicZone(): number {
   if (!state || !player) return 0;
+  if (state.gate4Open && inZone4(player.pos.x, player.pos.z)) return 3;
   if (state.gate3Open && inZone3(player.pos.x, player.pos.z)) return 2;
   return state.gateOpen && player.pos.x > 7 ? 1 : 0;
 }

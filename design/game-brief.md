@@ -82,6 +82,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Carrier hires: yard carrier (sushi table -> counter) and field carrier (rice balls -> counter); never touch cash
 - [x] General's visit: 30 bowls in 60 s at the soup counter earns a chest of cash (GDD 6)
 - [x] Music: a synthesized 60-90 s loop per zone (koto, bamboo flute, taiko), crossfading as you walk between zones (GDD 8)
+- [x] Zone 4, the great hearth: snowy yard, woodpile and ice hole, a hearth that cooks hot pots only while its fire burns, generals as customers, woodcutter and ice-fisher hires
 
 ## Your systems
 - hiring workers · in the slice
@@ -92,7 +93,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - general's visit · in the slice
 - blizzard · later
 - zone 3 (rice field) · in the slice
-- zone 4 (great hearth) · later
+- zone 4 (great hearth) · in the slice
 - rewarded ads and in-app purchases · later
 
 ## Keep
@@ -103,7 +104,6 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - Ads or in-app purchases in this build
 
 ## Out of scope
-- Zone 4 (great hearth): grow it
 - Blizzard event: change it after play
 - Prestige / new maps carrying outfits and multipliers: grow it
 - Rewarded ads, interstitials and purchases: not built yet

@@ -26,11 +26,12 @@ export interface Theme {
   busyDrums: boolean;
 }
 
-/** Zone 1 (dock), zone 2 (grill yard), zone 3 (rice field). */
+/** Zone 1 (dock), zone 2 (grill yard), zone 3 (rice field), zone 4 (great hearth). */
 export const THEMES: Theme[] = [
   { name: 'dock', bpm: 104, root: 62, scale: [0, 2, 4, 7, 9], lead: 'pluck', bars: 28, busyDrums: false }, // D major pentatonic
   { name: 'grill yard', bpm: 116, root: 57, scale: [0, 3, 5, 7, 10], lead: 'pluck', bars: 32, busyDrums: true }, // A minor pentatonic
   { name: 'rice field', bpm: 90, root: 55, scale: [0, 2, 5, 7, 9], lead: 'flute', bars: 24, busyDrums: false }, // G yo scale
+  { name: 'great hearth', bpm: 80, root: 52, scale: [0, 2, 3, 7, 8], lead: 'flute', bars: 24, busyDrums: true }, // E in-scale (miyako-bushi): wintry
 ];
 
 /** The loop's length in seconds. */
