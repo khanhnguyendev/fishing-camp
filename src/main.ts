@@ -6,7 +6,7 @@ import { tune, SEED } from './config';
 import * as THREE from 'three';
 import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
-import { startAudio, setMuted, muted, sfx } from './audio';
+import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
 import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE } from './game/unlocks';
@@ -1353,8 +1353,15 @@ const scenes: Record<string, Loose> = {
 };
 
 // ---- Loop: fixed step, frame time clamped ---------------------------------------------
+/** Which zone's music plays: the zone the player stands in (0 dock, 1 grill yard, 2 rice field). */
+function musicZone(): number {
+  if (!state || !player) return 0;
+  if (state.gate3Open && inZone3(player.pos.x, player.pos.z)) return 2;
+  return state.gateOpen && player.pos.x > 7 ? 1 : 0;
+}
 function step() {
   if (pressed('KeyM')) { setMuted(!muted); hit.delete('KeyM'); }
+  if (scene !== 'figures') musicTick(musicZone());
   scenes[scene].update(STEP); hit.clear();
 }
 let last = 0, acc = 0, ALPHA = 1; // ALPHA: how far the frame is between the last two steps

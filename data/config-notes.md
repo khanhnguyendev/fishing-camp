@@ -89,3 +89,6 @@ holds no comments. The values themselves are in `data/config.json`.
 - `general_bowls`: bowls the general orders
 - `general_time`: seconds he waits for them
 - `general_reward`: coins in the chest when the order is filled in time (each bowl also pays as usual)
+
+## Music (GDD 8: one 60-90 s loop per zone)
+- `music_volume`: loudness of the music under the effects (M mutes both)

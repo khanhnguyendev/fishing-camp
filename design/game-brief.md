@@ -81,6 +81,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Quick hands upgrade: the player fishes 1.5x faster at rods and the pond (GDD 4's third stat)
 - [x] Carrier hires: yard carrier (sushi table -> counter) and field carrier (rice balls -> counter); never touch cash
 - [x] General's visit: 30 bowls in 60 s at the soup counter earns a chest of cash (GDD 6)
+- [x] Music: a synthesized 60-90 s loop per zone (koto, bamboo flute, taiko), crossfading as you walk between zones (GDD 8)
 
 ## Your systems
 - hiring workers · in the slice
@@ -106,7 +107,6 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - Blizzard event: change it after play
 - Prestige / new maps carrying outfits and multipliers: grow it
 - Rewarded ads, interstitials and purchases: not built yet
-- Music loop per zone: change it after play
 - Long-run balance over 2–3 hours: grow it
 - Save that follows you across devices: needs a server: not built yet
 

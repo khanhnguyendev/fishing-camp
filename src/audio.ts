@@ -1,6 +1,7 @@
 // Sound: started on first input, mute on M. Every effect is synthesized with Web Audio.
 import { audioContext } from './hook';
 import { tune } from './config';
+import { composeLoop, loopSeconds, THEMES, type Note } from './game/music';
 
 let audio: { ac: AudioContext; out: GainNode; noise: AudioBuffer } | null = null;
 /** True while the sound is off. */
@@ -53,3 +54,62 @@ export const sfx = {
   horn() { [0, 0, 7, 12].forEach((s, i) => setTimeout(() => tone(220 * semis(s), 0.32, 'sawtooth', 0.09), i * 160)); },
   golden() { [0, 4, 7, 12].forEach((s, i) => setTimeout(() => tone(660 * semis(s), 0.25, 'triangle', 0.14), i * 90)); },
 };
+
+// ---- Music: one loop per zone (src/game/music.ts writes the notes), scheduled a moment ahead ----
+const midiHz = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);
+const LOOPS: Note[][] = [];
+let music: { zone: number; gain: GainNode; notes: Note[]; start: number; next: number; spb: number; len: number } | null = null;
+
+/** Plays one note of the music on its instrument, at audio time `at`, into the music's gain. */
+function playNote(n: Note, at: number, dur: number, dest: GainNode): void {
+  if (!audio) return;
+  const ac = audio.ac, noiseBuf = audio.noise;
+  const env = (peak: number, attack: number, end: number): GainNode => {
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, end); g.connect(dest); return g;
+  };
+  const osc = (type: OscillatorType, hz: number, g: GainNode, end: number): OscillatorNode => {
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(hz, at); o.connect(g); o.start(at); o.stop(end + 0.05); return o;
+  };
+  const hit = (freq: number, q: number, peak: number, len: number): void => {
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(); src.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    src.connect(f).connect(env(peak, 0.003, at + len)); src.start(at); src.stop(at + len + 0.05);
+  };
+  if (n.voice === 'pluck') { // a koto-like pluck: bright attack, quick fade, a quiet octave above
+    const end = at + Math.max(0.35, dur * 1.2);
+    osc('triangle', midiHz(n.midi), env(0.2, 0.005, end), end); osc('sine', midiHz(n.midi + 12), env(0.05, 0.005, end - 0.15), end);
+  } else if (n.voice === 'flute') { // a bamboo flute: soft attack, held, with vibrato
+    const end = at + dur + 0.12, o = osc('sine', midiHz(n.midi), env(0.14, 0.06, end), end);
+    const lfo = ac.createOscillator(), depth = ac.createGain(); lfo.frequency.value = 5.5; depth.gain.value = midiHz(n.midi) * 0.012;
+    lfo.connect(depth).connect(o.frequency); lfo.start(at); lfo.stop(end + 0.05);
+  } else if (n.voice === 'bass') {
+    const end = at + dur; osc('sine', midiHz(n.midi), env(0.16, 0.01, end), end);
+  } else if (n.voice === 'taiko') { // a deep drum: a falling boom and a skin slap
+    const end = at + 0.45, o = osc('sine', 110, env(0.45, 0.004, end), end); o.frequency.exponentialRampToValueAtTime(42, at + 0.25);
+    hit(180, 1, 0.2, 0.15);
+  } else hit(3200, 3, 0.04, 0.04); // rim click
+}
+
+/**
+ * Keeps the music for a zone playing (0 dock, 1 grill yard, 2 rice field): call it every step. It schedules
+ * the next notes a moment ahead on the audio clock and crossfades to a new loop when the zone changes.
+ */
+export function musicTick(zone: number): void {
+  if (!audio || audio.ac.state !== 'running') return;
+  const ac = audio.ac, now = ac.currentTime;
+  if (!music || music.zone !== zone) {
+    if (music) { const old = music.gain; old.gain.setTargetAtTime(0.0001, now, 0.4); setTimeout(() => old.disconnect(), 3000); }
+    const gain = ac.createGain(); gain.gain.setValueAtTime(0.0001, now); gain.connect(audio.out);
+    const t = THEMES[zone]; LOOPS[zone] ||= composeLoop(zone);
+    music = { zone, gain, notes: LOOPS[zone], start: now + 0.1, next: 0, spb: 60 / t.bpm, len: loopSeconds(t) };
+  }
+  music.gain.gain.setTargetAtTime(Math.max(0.0001, tune.music_volume), now, 0.4);
+  if (music.start + music.len < now - 1) { music.start = now + 0.1; music.next = 0; } // back from a paused tab: start the loop over
+  for (let guard = 0; guard < 400; guard++) {
+    const n = music.notes[music.next], at = music.start + n.beat * music.spb;
+    if (at > now + 0.35) break;
+    if (at >= now - 0.05) playNote(n, at, n.dur * music.spb, music.gain);
+    music.next++;
+    if (music.next >= music.notes.length) { music.next = 0; music.start += music.len; }
+  }
+}
