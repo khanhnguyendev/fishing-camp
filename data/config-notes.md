@@ -131,3 +131,13 @@ holds no comments. The values themselves are in `data/config.json`.
 ## The horse (asked for after play: "a horse to move fast between the zones")
 - `price_horse`: coins for the horse at the rice field's stable
 - `horse_speed_mult`: how many times faster you move riding (stacks with Swift feet)
+
+## Quest board (`data/quest_list.json`; asked for after play)
+The board shows one quest at a time, in the file's order. Each entry:
+- `id`: a unique name
+- `text`: what the board says
+- `kind`: `sell` (serve dishes), `unlock` (buy an unlock), `earn` (coins earned in total), `level` (any facility upgrade at a level)
+- `item`: for `sell`, the dish: `bowl`, `plate`, `riceball` or `hotpot`
+- `unlock`: for `unlock`, the unlock id (as in `src/game/unlocks.ts`)
+- `target`: how many (dishes, coins, the level; 1 for an unlock)
+- `reward`: coins paid when it is done

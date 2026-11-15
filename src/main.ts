@@ -9,6 +9,7 @@ import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP,
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
 import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { QUESTS, questDone, questProgress } from './game/quests';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -1024,7 +1025,7 @@ function updateCounters(dt: number) {
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
             const value = blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty);
-            state.earned += value; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
+            state.earned += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
             const cash = newItem('cash'); cash.value = value;
             const from = head.clone(); from.x += face * 0.6;
             if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
@@ -1042,7 +1043,7 @@ function updateCounters(dt: number) {
 }
 /** Pays a dish's coins out at a counter's cash pile, from where it was eaten. */
 function payOut(c: Loose, from: Loose, value: number, gold: boolean) {
-  state.earned += value; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
+  state.earned += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
   const cash = newItem('cash'); cash.value = value;
   if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
   else { c.cash.extra += value; fly(cash, from, () => c.cashPos.clone(), 0.5, 1.5, () => release(cash)); }
@@ -1276,6 +1277,15 @@ function updateBlizzard(dt: number) {
   const fog = scene3.fog as THREE.Fog; fog.near = 38 - fx.ice * 24; fog.far = 80 - fx.ice * 34;
   fog.color.set('#cdeaf3').lerp(new THREE.Color('#eef4f8'), fx.ice); (scene3.background as THREE.Color).copy(fog.color);
 }
+/** The quest board: when the current quest's target is reached, pay its reward and give the next. */
+function updateQuests() {
+  const q = QUESTS[state.quest];
+  if (!q || !questDone(q, state)) return;
+  state.wallet += q.reward; state.quest++; state.questFlash = 1.2;
+  sfx.bell(); buzz(60); events.push({ type: 'quest', id: q.id });
+  floats.push({ p: player.pos.clone().add(new V3(0, 2.6, 0)), txt: `Quest done! +${fmt(q.reward)}`, t: -0.6, col: '#ffe27a' });
+  save();
+}
 function updateCamera(dt: number) {
   let target = player.pos, k = tune.cam_lag;
   if (state.glide) { state.glide.t += dt; if (state.glide.t < tune.glide_time * 0.72) { target = state.glide.p; k = 5; } else { k = 7; if (state.glide.t > tune.glide_time) state.glide = null; } }
@@ -1344,7 +1354,7 @@ function save() {
   try {
     const paid: Record<string, number> = {}; for (const t of tiles) if (!t.done && t.paid) paid[t.def.id] = t.paid;
     localStorage.setItem(SAVE_KEY, JSON.stringify({ wallet: state.wallet, done: state.done, paid, at: Date.now(), rate: state.autoRate,
-      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, goal4Done: state.goal4Done, fuel: state.fuel, levels: state.levels, earned: state.earned, goldNext: state.goldNext }));
+      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, goal4Done: state.goal4Done, fuel: state.fuel, levels: state.levels, quest: state.quest, sold: state.sold, earned: state.earned, goldNext: state.goldNext }));
   } catch (_) {}
 }
 function load() {
@@ -1356,7 +1366,7 @@ function load() {
   state.generalNext = Math.max(tune.general_first, state.playTime + tune.general_min);
   for (const u of UNLOCKS) if (!u.levels && (s.done || []).includes(u.id)) unlock(tiles.find((t: Loose) => t.def.id === u.id), true);
   for (const u of UNLOCKS) if (u.levels && (s.done || []).includes(u.id) && !state.done.includes(u.id)) state.done.push(u.id);
-  state.levels = { ...(s.levels || {}) };
+  state.levels = { ...(s.levels || {}) }; state.sold = { ...(s.sold || {}) }; state.quest = s.quest | 0;
   for (const t of tiles) if (t.def.levels && lv(t.def.id) >= tune.upgrade_max) { t.done = true; t.mesh.visible = false; }
   for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
   const { away, earned } = offlineEarnings(state.autoRate, (Date.now() - (s.at || Date.now())) / 1000, tune.offline_cap, tune.offline_factor);
@@ -1374,7 +1384,7 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {} }; // 1e9 s: no blizzard until the great hearth opens
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {} }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
@@ -1403,11 +1413,11 @@ function reset() {
 }
 function tick3D(dt: number) { // the camp keeps running under every overlay
   state.t += dt;
-  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt); updateHearth(dt); updateBlizzard(dt);
+  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt); updateHearth(dt); updateBlizzard(dt); updateQuests();
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
-  updateGeneral(dt);
+  updateGeneral(dt); if (state.questFlash > 0) state.questFlash -= dt;
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
@@ -1463,6 +1473,18 @@ function drawHud() {
   // cash total, top-left
   ctx.fillStyle = 'rgba(48,28,18,0.72)'; const sy = SAFE_TOP(); rrect(ctx, 18, 16 + sy, 236, 58, 29); ctx.fill();
   drawCoin(ctx, 48, 45 + sy, 19); text(fmt(Math.round(state.walletShown)), 80, 46 + sy, 34, '#ffffff', 'left');
+  // the quest board: the current goal, how far along, and its reward
+  const q = QUESTS[state.quest];
+  if (q) {
+    const qw = Math.min(380, W - 36), qy = 84 + sy, fl = Math.max(0, state.questFlash || 0);
+    ctx.fillStyle = fl > 0 ? `rgba(120,90,10,${0.72 + fl * 0.2})` : 'rgba(48,28,18,0.72)'; rrect(ctx, 18, qy, qw, 52, 16); ctx.fill();
+    ctx.fillStyle = '#e9d7a8'; ctx.fillRect(30, qy + 12, 22, 28); ctx.fillStyle = '#b07440'; ctx.fillRect(28, qy + 10, 26, 5); ctx.fillRect(28, qy + 37, 26, 5); // a scroll
+    ctx.fillStyle = '#6b4220'; for (let i = 0; i < 3; i++) ctx.fillRect(34, qy + 19 + i * 6, 14, 2);
+    const p = questProgress(q, state), prog = q.kind === 'unlock' ? '' : `  ${fmt(p)}/${fmt(q.target)}`;
+    text(q.text + prog, 64, qy + 18, 18, '#ffffff', 'left');
+    drawCoin(ctx, 72, qy + 38, 8); text('+' + fmt(q.reward), 86, qy + 39, 16, '#ffe27a', 'left');
+    const bw = qw - 150; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(140, qy + 34, bw, 8); ctx.fillStyle = '#6cc35a'; ctx.fillRect(140, qy + 34, bw * (p / q.target), 8);
+  }
   // settings button, top-right
   ctx.save(); ctx.translate(GEAR.x, GEAR.y);
   ctx.fillStyle = 'rgba(48,28,18,0.72)'; ctx.beginPath(); ctx.arc(0, 0, GEAR.r + 6, 0, 2 * PI); ctx.fill();
@@ -1473,20 +1495,20 @@ function drawHud() {
   for (const f of floats) { const [x, y, z] = project(f.p); if (z < 1) { ctx.globalAlpha = 1 - f.t / 0.9; text(f.txt, x, y, 22, f.col); ctx.globalAlpha = 1; } }
   // golden school banner
   if (state.goldLeft > 0) {
-    const w = Math.min(460, W - 32), gy = H > W ? 96 + SAFE_TOP() : 18; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
+    const w = Math.min(460, W - 32), gy = H > W ? 150 + SAFE_TOP() : 18; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
     text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, gy + 28, 28, '#ffe27a');
   }
   // blizzard banner (under the golden one when both show)
   if (state.blizzardLeft > 0) {
-    const w = Math.min(560, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0), out = state.fuel <= 0;
+    const w = Math.min(560, W - 32), base = H > W ? 150 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0), out = state.fuel <= 0;
     ctx.fillStyle = out ? 'rgba(120,24,24,0.85)' : 'rgba(30,60,90,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#e8f8ff'; ctx.lineWidth = 3; ctx.stroke();
     text(out ? `BLIZZARD   fire out: customers pay half   ${Math.ceil(state.blizzardLeft)}s` : `BLIZZARD   keep the fire lit   ${Math.ceil(state.blizzardLeft)}s`, W / 2, gy + 28, 26, '#ffffff');
   }
   // general's visit banner
   if (state.general && state.general.phase === 'eat') {
-    const g = state.general, w = Math.min(520, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0) + (state.blizzardLeft > 0 ? 64 : 0);
+    const g = state.general, w = Math.min(520, W - 32), base = H > W ? 150 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0) + (state.blizzardLeft > 0 ? 64 : 0);
     ctx.fillStyle = 'rgba(110,20,20,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
     text(`GENERAL'S VISIT   ${g.eaten}/${tune.general_bowls}   ${Math.ceil(g.t)}s`, W / 2, gy + 28, 28, '#ffe9c4');

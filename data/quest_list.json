@@ -1,0 +1,18 @@
+[
+  { "id": "soup10", "text": "Serve 10 bowls of soup", "kind": "sell", "item": "bowl", "target": 10, "reward": 50 },
+  { "id": "fisher", "text": "Hire your first fisher", "kind": "unlock", "unlock": "fisher1", "target": 1, "reward": 60 },
+  { "id": "soup40", "text": "Serve 40 bowls of soup", "kind": "sell", "item": "bowl", "target": 40, "reward": 120 },
+  { "id": "conveyor", "text": "Build the conveyor", "kind": "unlock", "unlock": "conveyor", "target": 1, "reward": 150 },
+  { "id": "cashier", "text": "Hire a cashier", "kind": "unlock", "unlock": "cashier1", "target": 1, "reward": 150 },
+  { "id": "earn1500", "text": "Earn 1,500 coins", "kind": "earn", "target": 1500, "reward": 250 },
+  { "id": "grillyard", "text": "Open the grill yard", "kind": "unlock", "unlock": "gate", "target": 1, "reward": 300 },
+  { "id": "sushi30", "text": "Serve 30 sushi plates", "kind": "sell", "item": "plate", "target": 30, "reward": 400 },
+  { "id": "level2", "text": "Upgrade anything to level 2", "kind": "level", "target": 2, "reward": 500 },
+  { "id": "ricefield", "text": "Open the rice field", "kind": "unlock", "unlock": "gate3", "target": 1, "reward": 800 },
+  { "id": "rice30", "text": "Serve 30 rice balls", "kind": "sell", "item": "riceball", "target": 30, "reward": 1200 },
+  { "id": "horse", "text": "Buy the horse", "kind": "unlock", "unlock": "horse", "target": 1, "reward": 1000 },
+  { "id": "level4", "text": "Upgrade anything to level 4", "kind": "level", "target": 4, "reward": 2000 },
+  { "id": "hearth", "text": "Open the great hearth", "kind": "unlock", "unlock": "gate4", "target": 1, "reward": 3000 },
+  { "id": "hotpot30", "text": "Serve 30 hot pots", "kind": "sell", "item": "hotpot", "target": 30, "reward": 5000 },
+  { "id": "earn200k", "text": "Earn 200K coins", "kind": "earn", "target": 200000, "reward": 20000 }
+]

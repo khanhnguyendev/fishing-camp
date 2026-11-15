@@ -90,6 +90,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Facility upgrades, levels 1-5: stove, rods, grill, rice tub, cauldron (each level 25% faster) and staff (workers walk faster, carry more)
 - [x] Offline income for the whole camp: every zone whose dishes reach the counter without you (conveyor, carriers) earns while you are away; a carrier for the great hearth
 - [x] The horse: bought at the rice field's stable, you ride everywhere 1.6x faster
+- [x] Quest board: 16 goals in order (data/quest_list.json), each with a coin reward, shown under the coins
 
 ## Your systems
 - hiring workers · in the slice
