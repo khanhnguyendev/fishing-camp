@@ -51,6 +51,8 @@ export interface UnlockDef {
   req: string[];
   /** Where the camera glides when it is bought. */
   focus?: [number, number];
+  /** A facility upgrade bought again and again, up to the upgrade_max level; the price grows each time. */
+  levels?: boolean;
 }
 
 /** What localStorage keeps between visits. */

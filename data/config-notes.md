@@ -116,3 +116,10 @@ holds no comments. The values themselves are in `data/config.json`.
 ## Cashiers (asked for after play: "a cashier that collects the money automatically"; this replaces the GDD 4 rule that only the player collects cash)
 - `price_cashier1` .. `price_cashier4`: coins to hire the cashier at the soup, sushi, rice-ball and hot-pot counters
 - `cashier_interval`: seconds between bundles a cashier moves from the cash pile into your wallet
+
+## Facility upgrades (asked for after play: "a faster stove, faster rods, upgrade the staff")
+- `price_up_stove`, `price_up_rods`, `price_up_staff`, `price_up_grill`, `price_up_ricecook`, `price_up_hearth`: the first level's price of each upgrade
+- `upgrade_growth`: each next level costs this many times the last
+- `upgrade_max`: how many levels each upgrade has
+- `upgrade_speed_step`: each level of a stove, the rods, the grill, the rice tub or the cauldron makes it this much faster (1 + step x level)
+- `staff_speed_step`: each STAFF level makes every worker walk this much faster; every 2 levels a fisher, farmer or woodcutter carries 1 more, a carrier 1 more each level

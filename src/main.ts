@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -386,15 +386,24 @@ function drawCoin(g: Loose, cx: number, cy: number, r: number) {
   g.fillStyle = '#c98f17'; g.fillRect(cx - r * 0.28, cy - r * 0.28, r * 0.56, r * 0.56);
   g.fillStyle = '#fff3b0'; g.fillRect(cx - r * 0.55, cy - r * 0.6, r * 0.22, r * 0.12);
 }
+/** An upgrade's level (0 before the first purchase). */
+const lv = (id: string): number => (state && state.levels && state.levels[id]) || 0;
+/** What a price tile asks now: its fixed price, or for a levelled upgrade the price of its next level. */
+function tilePrice(t: Loose): number { return t.def.levels ? upgradePrice(tune[t.def.price], lv(t.def.id), tune.upgrade_growth) : tune[t.def.price]; }
+/** Seconds a station takes for one ingredient, made faster by its upgrade. */
+const STATION_UP: Record<string, string> = { board: 'up_stove', grill: 'up_grill', rice: 'up_ricecook', hearth: 'up_hearth' };
+function cookTime(pr: Loose): number { return tune[pr.timeKey] / levelSpeed(lv(STATION_UP[pr.name]), tune.upgrade_speed_step); }
+/** How fast hired workers walk, with the STAFF upgrade. */
+function workerSpeed(): number { return tune.worker_speed * levelSpeed(lv('up_staff'), tune.staff_speed_step); }
 function drawPriceTile(t: Loose) {
-  const g = t.tex.g, remaining = Math.max(0, tune[t.def.price] - t.paid);
+  const g = t.tex.g, price = tilePrice(t), remaining = Math.max(0, price - t.paid);
   g.clearRect(0, 0, 256, 256);
   g.fillStyle = t.flash > 0 ? '#fff4b8' : 'rgba(52,36,30,0.92)'; rrect(g, 10, 10, 236, 236, 34); g.fill();
   g.lineWidth = 10; g.strokeStyle = t.def.kind === 'zone' ? '#ffd34d' : '#ffffff'; g.stroke();
-  const frac = 1 - remaining / tune[t.def.price];
+  const frac = 1 - remaining / price;
   if (frac > 0) { g.save(); rrect(g, 10, 10, 236, 236, 34); g.clip(); g.fillStyle = 'rgba(108,195,90,0.35)'; g.fillRect(10, 246 - 236 * frac, 236, 236 * frac); g.restore(); }
   drawIcon(g, t.def.kind, 128, 74, 92, t.def.kind === 'zone' ? '#ffd34d' : '#ffffff');
-  g.fillStyle = '#ffe9c4'; g.font = `bold 26px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.def.label, 128, 146);
+  g.fillStyle = '#ffe9c4'; g.font = `bold 26px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t.def.levels ? `${t.def.label} LV${lv(t.def.id) + 1}` : t.def.label, 128, 146);
   g.font = `bold 52px ${FONT}`; const s = fmt(remaining), w = g.measureText(s).width;
   drawCoin(g, 128 - w / 2 - 6, 202, 20); g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.fillText(s, 128 - w / 2 + 22, 204);
   t.tex.t.needsUpdate = true; t.shown = remaining;
@@ -749,7 +758,7 @@ function makeCarrier(role: string, x: number, z: number, isPlayer: boolean) {
   const ch = makeChar(role); world.add(ch.group); const sh = blob(world, 0.55);
   const c: Loose = { ch, sh, pos: new V3(x, 0, z), vel: new V3(), facing: 0, stack: [], lean: new V3(), leanV: new V3(), cd: 0, isPlayer, mode: null };
   c.who = isPlayer ? 'player' : 'worker';
-  c.cap = (type: Loose) => carryCap(type, c.who, state.carry, tune as Loose);
+  c.cap = (type: Loose) => carryCap(type, c.who, state.carry, tune as Loose, lv('up_staff'));
   c.canTake = (type: Loose) => (c.stack.length === 0 || c.stack[0].type === type) && c.stack.length < c.cap(type);
   c.top = () => { const it = c.stack[c.stack.length - 1]; return it && !it.flying ? it : null; };
   c.slot = (i: Loose) => {
@@ -844,14 +853,26 @@ function unlock(t: Loose, instant: boolean) {
   }
   if (!instant) save();
 }
+/** A price tile is paid: a one-off unlock, or the next level of a levelled upgrade. */
+function complete(t: Loose) {
+  if (!t.def.levels) { unlock(t, false); return; }
+  const id = t.def.id, next = lv(id) + 1;
+  state.levels[id] = next; t.paid = 0; t.flash = 0.35;
+  sfx.bell(); buzz(60); puffs(new V3(t.def.x, 0.4, t.def.z), 8, '#fff4b8', 1.2);
+  floats.push({ p: new V3(t.def.x, 2.2, t.def.z), txt: `${t.def.label} LV${next}!`, t: -0.4, col: '#ffe27a' });
+  events.push({ type: 'upgrade', id, level: next });
+  if (next >= tune.upgrade_max) { t.done = true; t.hideT = 0.35; if (!state.done.includes(id)) state.done.push(id); }
+  drawPriceTile(t); save();
+}
 function updateTiles(dt: number) {
   for (const t of tiles) {
     if (t.hideT >= 0) { t.hideT -= dt; t.flash -= dt; drawPriceTile(t); const k = Math.max(0, t.hideT / 0.35); t.mesh.scale.setScalar((t.def.size || 1.7) * k + 0.001); if (t.hideT < 0) t.mesh.visible = false; continue; }
     const vis = tileVisible(t);
     if (vis && !t.visibleNow) { t.visibleNow = true; t.mesh.visible = true; drawPriceTile(t); pops.push({ obj: { scale: { setScalar: (v: Loose) => t.mesh.scale.setScalar((t.def.size || 1.7) * v) } }, t: 0, dur: 0.5 }); }
     if (!vis) continue;
-    const price = tune[t.def.price], remaining = price - t.paid;
-    if (remaining <= 0) { unlock(t, false); continue; }
+    if (t.flash > 0) { t.flash -= dt; drawPriceTile(t); }
+    const price = tilePrice(t), remaining = price - t.paid;
+    if (remaining <= 0) { complete(t); continue; }
     // cash flows only while you stand still on the tile, so running across one never pays it
     const still = Math.hypot(player.vel.x, player.vel.z) < tune.pay_still_speed;
     if (inTile(player.pos, t.def, (t.def.size || 1.7) / 2) && !state.welcome && still) {
@@ -862,7 +883,7 @@ function updateTiles(dt: number) {
         sfx.pay(state.payStreak);
         const it = newItem('cash'); const from = player.pos.clone(); from.y = 1.2;
         fly(it, from, () => new V3(t.def.x, 0.1, t.def.z), 0.22, 0.8, () => release(it));
-        if (t.paid >= price) unlock(t, false);
+        if (t.paid >= price) complete(t);
       }
     } else { t.dwell = 0; }
     if (t.shown !== Math.max(0, price - t.paid)) drawPriceTile(t);
@@ -887,7 +908,7 @@ function updateRods(dt: number) {
     if (state.blizzardLeft > 0) occ = null; // the river is frozen
     if (occ) {
       occ.mode = 'pull';
-      rod.prog += dt / catchTime(tune.fish_time, occ === player, state.fishSpeed, tune.fish_speed_mult);
+      rod.prog += dt / (catchTime(tune.fish_time, occ === player, state.fishSpeed, tune.fish_speed_mult) / levelSpeed(lv('up_rods'), tune.upgrade_speed_step));
       rod.ripT -= dt; if (rod.ripT <= 0 && rod.prog > 0.25) { rod.ripT = 0.35; particle('ring', new V3(rod.x, -0.4, -12.6), new V3(), 0.8, state.goldLeft > 0 ? '#ffe27a' : '#ffffff', 0.8); }
       if (occ === player && rod.prog > 0.35) { rod.sndT -= dt; if (rod.sndT <= 0) { rod.sndT = 0.14; sfx.tension(rod.prog); } }
       if (rod.prog >= 1) { rod.prog = 0; catchFish(rod, occ); }
@@ -911,7 +932,7 @@ function updateProcessors(dt: number) {
   // its own fish and throws its own dishes. A second pot means two fish cooking at once.
   for (const pr of processors) {
     if (!pr.active) continue;
-    const pots = pr.pots(), per = tune[pr.perKey], cut = Math.min(tune.cut_time, tune[pr.timeKey] * 0.5);
+    const pots = pr.pots(), per = tune[pr.perKey], cut = Math.min(tune.cut_time, cookTime(pr) * 0.5);
     const halted = pr.canWork ? !pr.canWork() : false; // the great hearth cooks only while its fire burns
     while (pr.slots.length < pots.length) pr.slots.push({ cur: null, t: 0, phase: null });
     pr.chef.mode = null;
@@ -939,7 +960,7 @@ function updateProcessors(dt: number) {
         }
       } else {
         sl.cur.mesh.visible = false; if (sl.cur2) sl.cur2.mesh.visible = false;
-        if (sl.t >= Math.max(0.1, tune[pr.timeKey] - cut)) {
+        if (sl.t >= Math.max(0.1, cookTime(pr) - cut)) {
           const gold = sl.cur.gold || !!(sl.cur2 && sl.cur2.gold); release(sl.cur); sl.cur = null;
           if (sl.cur2) { release(sl.cur2); sl.cur2 = null; }
           const from = pot.clone(); puffs(from, 4, '#ffffff', 1);
@@ -1101,7 +1122,7 @@ function moveTo(c: Loose, target: Loose, dt: number, speed: number) {
 /** A carrier's round: wait at a table for dishes, take a load, walk it to the counter, unload, go back. */
 function updateCarrierWorker(w: Loose, dt: number) {
   const pile = w.pick.pile, cnt = w.counter;
-  if (w.state === 'toPick') { if (moveTo(w, w.pick.at, dt, tune.worker_speed)) { w.state = 'pick'; w.wait = 0; } }
+  if (w.state === 'toPick') { if (moveTo(w, w.pick.at, dt, workerSpeed())) { w.state = 'pick'; w.wait = 0; } }
   else if (w.state === 'pick') {
     w.vel.set(0, 0, 0);
     const top = pile.top();
@@ -1109,7 +1130,7 @@ function updateCarrierWorker(w: Loose, dt: number) {
     else w.wait += dt;
     // leave with a full load, or with what there is once the table has stayed empty a moment
     if (w.stack.length && !w.stack.some((i: Loose) => i.flying) && (!w.canTake(pile.type) || w.wait > 0.6)) w.state = 'toDrop';
-  } else if (w.state === 'toDrop') { if (moveTo(w, cnt.drop, dt, tune.worker_speed)) w.state = 'drop'; }
+  } else if (w.state === 'toDrop') { if (moveTo(w, cnt.drop, dt, workerSpeed())) w.state = 'drop'; }
   else if (w.state === 'drop') {
     w.vel.set(0, 0, 0);
     const top = w.top();
@@ -1119,7 +1140,7 @@ function updateCarrierWorker(w: Loose, dt: number) {
 }
 /** A cashier walks to the side of a counter's cash pile and moves its bundles into your wallet, one at a time. */
 function updateCashier(w: Loose, dt: number) {
-  if (w.state === 'toStand') { if (moveTo(w, w.stand, dt, tune.worker_speed)) w.state = 'work'; return; }
+  if (w.state === 'toStand') { if (moveTo(w, w.stand, dt, workerSpeed())) w.state = 'work'; return; }
   w.vel.set(0, 0, 0); w.facing = w.face; w.mode = w.counter.cash.items.length ? 'chop' : null;
   const top = w.counter.cash.top();
   if (top && w.cd <= 0) {
@@ -1134,9 +1155,9 @@ function updateWorkers(dt: number) {
     w.mode = null; w.cd -= dt;
     if (w.who === 'cashier') { updateCashier(w, dt); continue; }
     if (w.who === 'carrier') { updateCarrierWorker(w, dt); continue; }
-    if (w.state === 'toRod') { if (moveTo(w, w.rod.tile, dt, tune.worker_speed)) w.state = 'fish'; }
+    if (w.state === 'toRod') { if (moveTo(w, w.rod.tile, dt, workerSpeed())) w.state = 'fish'; }
     else if (w.state === 'fish') { w.vel.set(0, 0, 0); if (!w.canTake(w.item) && !w.stack.some((i: Loose) => i.flying)) w.state = 'toDrop'; }
-    else if (w.state === 'toDrop') { if (moveTo(w, w.proc.drop, dt, tune.worker_speed)) w.state = 'drop'; }
+    else if (w.state === 'toDrop') { if (moveTo(w, w.proc.drop, dt, workerSpeed())) w.state = 'drop'; }
     else if (w.state === 'drop') {
       w.vel.set(0, 0, 0);
       const top = w.top(), pile = w.item === w.proc.input.type ? w.proc.input : w.item === 'wood' ? w.proc.fuelPile : w.proc.input2;
@@ -1271,7 +1292,7 @@ function guideTarget() {
     if (piles.sushi.top()) return new V3(16.6, 0, 0.75);
     if (!rods[3].owner) return rods[3].tile;
   }
-  for (const t of tiles) if (tileVisible(t) && t.hideT < 0 && state.wallet >= tune[t.def.price] - t.paid) return new V3(t.def.x, 0, t.def.z);
+  for (const t of tiles) if (tileVisible(t) && t.hideT < 0 && state.wallet >= tilePrice(t) - t.paid) return new V3(t.def.x, 0, t.def.z);
   let best = null, bd = 1e9;
   for (const c of counters) if (c.active && c.cash.items.length) { const d = c.cashPos.distanceTo(P0(player.pos)); if (d < bd) { bd = d; best = c.cashPos; } }
   if (best) return best;
@@ -1300,7 +1321,7 @@ function save() {
   try {
     const paid: Record<string, number> = {}; for (const t of tiles) if (!t.done && t.paid) paid[t.def.id] = t.paid;
     localStorage.setItem(SAVE_KEY, JSON.stringify({ wallet: state.wallet, done: state.done, paid, at: Date.now(), rate: state.autoRate,
-      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, goal4Done: state.goal4Done, fuel: state.fuel, earned: state.earned, goldNext: state.goldNext }));
+      playTime: state.playTime, goalDone: state.goalDone, goal3Done: state.goal3Done, goal4Done: state.goal4Done, fuel: state.fuel, levels: state.levels, earned: state.earned, goldNext: state.goldNext }));
   } catch (_) {}
 }
 function load() {
@@ -1310,7 +1331,10 @@ function load() {
   state.wallet = s.wallet | 0; state.playTime = s.playTime || 0; state.goalDone = !!s.goalDone; state.earned = s.earned || 0; state.autoRate = s.rate || 0;
   state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done; state.goal4Done = !!s.goal4Done; state.fuel = typeof s.fuel === 'number' ? s.fuel : tune.fuel_start;
   state.generalNext = Math.max(tune.general_first, state.playTime + tune.general_min);
-  for (const id of UNLOCKS.map((u: Loose) => u.id)) if ((s.done || []).includes(id)) unlock(tiles.find((t: Loose) => t.def.id === id), true);
+  for (const u of UNLOCKS) if (!u.levels && (s.done || []).includes(u.id)) unlock(tiles.find((t: Loose) => t.def.id === u.id), true);
+  for (const u of UNLOCKS) if (u.levels && (s.done || []).includes(u.id) && !state.done.includes(u.id)) state.done.push(u.id);
+  state.levels = { ...(s.levels || {}) };
+  for (const t of tiles) if (t.def.levels && lv(t.def.id) >= tune.upgrade_max) { t.done = true; t.mesh.visible = false; }
   for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
   const { away, earned } = offlineEarnings(state.autoRate, (Date.now() - (s.at || Date.now())) / 1000, tune.offline_cap, tune.offline_factor);
   if (earned > 0 && away > 30) state.welcome = { earned, away };
@@ -1327,7 +1351,7 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9 }; // 1e9 s: no blizzard until the great hearth opens
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {} }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);

@@ -87,6 +87,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Zone 4, the great hearth: snowy yard, woodpile and ice hole, a hearth that cooks hot pots only while its fire burns, generals as customers, woodcutter and ice-fisher hires
 - [x] Blizzard: every few minutes once the hearth is open, the river and pond freeze for 30 s (only the ice hole gives fish); with the hearth fire out, customers pay half (GDD 6)
 - [x] Cashiers: one hire per counter moves its cash pile into your wallet
+- [x] Facility upgrades, levels 1-5: stove, rods, grill, rice tub, cauldron (each level 25% faster) and staff (workers walk faster, carry more)
 
 ## Your systems
 - hiring workers · in the slice

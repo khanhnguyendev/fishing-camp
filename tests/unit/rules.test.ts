@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { blizzardPay, burnFuel, carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -134,6 +134,30 @@ describe('blizzardPay', () => {
 
   it('a blizzard ends well before the next can start', () => {
     expect(v('blizzard_duration')).toBeLessThan(v('blizzard_min'));
+  });
+});
+
+describe('facility upgrades', () => {
+  it('each level costs the growth factor times the last, rounded to 10 coins', () => {
+    const base = v('price_up_stove'), g = v('upgrade_growth');
+    expect(upgradePrice(base, 0, g)).toBe(base);
+    expect(upgradePrice(base, 1, g)).toBe(Math.round(base * g / 10) * 10);
+    for (let l = 1; l < v('upgrade_max'); l++) expect(upgradePrice(base, l, g)).toBeGreaterThan(upgradePrice(base, l - 1, g));
+  });
+
+  it('each level makes a station faster by the step, never slower', () => {
+    const step = v('upgrade_speed_step');
+    expect(levelSpeed(0, step)).toBe(1);
+    expect(v('cook_time') / levelSpeed(v('upgrade_max'), step)).toBeLessThan(v('cook_time'));
+    expect(levelSpeed(2, step)).toBeCloseTo(1 + 2 * step, 9);
+  });
+
+  it('STAFF lets workers carry more: a fisher 1 more every 2 levels, a carrier 1 more each level', () => {
+    expect(carryCap('fish', 'worker', 0, carryTuning, 0)).toBe(v('worker_cap'));
+    expect(carryCap('fish', 'worker', 0, carryTuning, 1)).toBe(v('worker_cap'));
+    expect(carryCap('fish', 'worker', 0, carryTuning, 2)).toBe(v('worker_cap') + 1);
+    expect(carryCap('plate', 'carrier', 0, carryTuning, 3)).toBe(v('carrier_cap') + 3);
+    expect(carryCap('fish', 'player', 0, carryTuning, 5)).toBe(v('fish_cap')); // STAFF is not yours
   });
 });
 

@@ -29,9 +29,10 @@ export type Bearer = 'player' | 'worker' | 'carrier';
 export function carryCap(
   type: ItemType, who: Bearer, carryLevel: number,
   t: { fish_cap: number; dish_cap: number; carry_fish_add: number; carry_dish_add: number; worker_cap: number; carrier_cap: number },
+  staffLevel = 0,
 ): number {
-  if (who === 'worker') return t.worker_cap;
-  if (who === 'carrier') return t.carrier_cap;
+  if (who === 'worker') return t.worker_cap + Math.floor(staffLevel / 2);
+  if (who === 'carrier') return t.carrier_cap + staffLevel;
   return type === 'fish' ? t.fish_cap + carryLevel * t.carry_fish_add : t.dish_cap + carryLevel * t.carry_dish_add;
 }
 
@@ -53,6 +54,16 @@ export function visitOutcome(eaten: number, need: number, timeLeft: number): 'wo
 export function blizzardPay(value: number, blizzard: boolean, fireLit: boolean, penalty: number): number {
   if (!blizzard || fireLit) return value;
   return Math.max(1, Math.round(value * penalty));
+}
+
+/** The price of the next level of a facility upgrade: the first price x growth^level, rounded to 10 coins. */
+export function upgradePrice(base: number, level: number, growth: number): number {
+  return Math.round(base * Math.pow(growth, level) / 10) * 10;
+}
+
+/** How much faster something is at an upgrade level: 1 + step x level (times are divided by it). */
+export function levelSpeed(level: number, step: number): number {
+  return 1 + step * level;
 }
 
 /**
