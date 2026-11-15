@@ -75,6 +75,11 @@ export function zoneAutomated(zone: number, done: string[]): boolean {
   return !!needs[zone] && done.includes(needs[zone]);
 }
 
+/** The player's run speed: the base, times Swift feet and the horse when they are bought. */
+export function playerSpeed(base: number, swift: boolean, swiftMult: number, horse: boolean, horseMult: number): number {
+  return base * (swift ? swiftMult : 1) * (horse ? horseMult : 1);
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

@@ -127,3 +127,7 @@ holds no comments. The values themselves are in `data/config.json`.
 
 ## Offline income (asked for after play: "offline income for the whole camp")
 - A zone earns while you are away when its dishes reach the counter without you: zone 1 with the conveyor, zones 2-4 with their carrier. The game measures what those zones earn while you play and pays that rate for the time away (`offline_cap`, `offline_factor`).
+
+## The horse (asked for after play: "a horse to move fast between the zones")
+- `price_horse`: coins for the horse at the rice field's stable
+- `horse_speed_mult`: how many times faster you move riding (stacks with Swift feet)

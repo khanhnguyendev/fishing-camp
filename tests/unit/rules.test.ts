@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -170,6 +170,16 @@ describe('zoneAutomated', () => {
     expect(zoneAutomated(3, ['carrier3'])).toBe(true);
     expect(zoneAutomated(4, ['cashier4'])).toBe(false); // a cashier alone does not carry dishes
     expect(zoneAutomated(4, ['carrier4'])).toBe(true);
+  });
+});
+
+describe('playerSpeed', () => {
+  it('the horse and Swift feet each multiply your speed, and stack', () => {
+    const b = v('run_speed'), s = v('speed_mult'), h = v('horse_speed_mult');
+    expect(playerSpeed(b, false, s, false, h)).toBe(b);
+    expect(playerSpeed(b, false, s, true, h)).toBeCloseTo(b * h, 9);
+    expect(playerSpeed(b, true, s, true, h)).toBeCloseTo(b * s * h, 9);
+    expect(h).toBeGreaterThan(1);
   });
 });
 

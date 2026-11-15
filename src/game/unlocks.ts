@@ -23,6 +23,7 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'up_grill', kind: 'upgrade', label: 'GRILL', price: 'price_up_grill', x: 12.0, z: -5.4, req: ['gate'], levels: true },
   { id: 'up_ricecook', kind: 'upgrade', label: 'RICE TUB', price: 'price_up_ricecook', x: 16.2, z: 11.9, req: ['gate3'], levels: true },
   { id: 'up_hearth', kind: 'upgrade', label: 'CAULDRON', price: 'price_up_hearth', x: 16.6, z: 26.6, req: ['gate4'], levels: true },
+  { id: 'horse', kind: 'upgrade', label: 'HORSE', price: 'price_horse', x: 11.0, z: 10.2, req: ['gate3'], focus: [9.4, 9.7] },
   { id: 'gate3', kind: 'zone', label: 'RICE FIELD', price: 'price_gate3', x: 14, z: 6.0, req: ['gate'], focus: [14, 14] },
   { id: 'farmer', kind: 'hire', label: 'FARMER', price: 'price_farmer', x: 20.4, z: 15.2, size: 1.2, req: ['gate3'], focus: [19.2, 12] },
   { id: 'carrier4', kind: 'hire', label: 'CARRIER', price: 'price_carrier4', x: 10.6, z: 25.0, size: 1.2, req: ['gate4'], focus: [10.4, 28] },

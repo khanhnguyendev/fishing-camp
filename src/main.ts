@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -180,7 +180,7 @@ function animChar(ch: Loose, speed: number, dt: number, mode: Loose) { // mode: 
   ch.phase += dt * (speed > 0.2 ? 4 + speed * 1.6 : 2);
   const s = Math.sin(ch.phase), run = Math.min(1, speed / 3);
   ch.legL.rotation.x = s * 0.8 * run; ch.legR.rotation.x = -s * 0.8 * run;
-  ch.body.position.y = run > 0.05 ? Math.abs(Math.cos(ch.phase)) * 0.07 * run : Math.sin(ch.phase) * 0.012;
+  ch.body.position.y = (ch.lift || 0) + (run > 0.05 ? Math.abs(Math.cos(ch.phase)) * 0.07 * run : Math.sin(ch.phase) * 0.012);
   let al = -s * 0.7 * run, ar = s * 0.7 * run;
   if (mode === 'carry') { al = 0.55 + s * 0.15 * run; ar = 0.55 - s * 0.15 * run; }
   if (mode === 'pull') { al = ar = -1.25 + Math.sin(ch.phase * 3) * 0.08; }
@@ -212,6 +212,17 @@ function soldierGeo(gold: boolean) {
 }
 const SOLDIER_GEO = [soldierGeo(false), soldierGeo(true)];
 /** Zone 3's customers: a blue-armoured rider on a brown horse (faces +z like the soldiers). */
+/** A saddled horse alone (faces +z): the one you can buy, and the one at the stable. */
+function horseGeo() {
+  const HC = '#a8743e', H2 = '#7a4a26', P = [];
+  P.push([G.box, HC, mx(0, 0.95, 0, 0, 0, 0, 0.62, 0.62, 1.5)]);
+  for (const [x, z] of [[-0.2, 0.55], [0.2, 0.55], [-0.2, -0.55], [0.2, -0.55]]) P.push([G.box, H2, mx(x, 0.35, z, 0, 0, 0, 0.16, 0.7, 0.16)]);
+  P.push([G.box, HC, mx(0, 1.4, 0.82, -0.6, 0, 0, 0.34, 0.8, 0.36)], [G.box, HC, mx(0, 1.72, 1.12, -1.2, 0, 0, 0.3, 0.62, 0.3)]);
+  P.push([G.box, '#f4efe0', mx(0, 1.62, 0.66, -0.6, 0, 0, 0.08, 0.7, 0.28)], [G.box, '#f4efe0', mx(0, 1.0, -0.82, 0.5, 0, 0, 0.12, 0.6, 0.12)]);
+  P.push([G.box, '#2f86e0', mx(0, 1.29, 0, 0, 0, 0, 0.7, 0.06, 0.9)], [G.box, '#e23b2e', mx(0, 1.33, 0, 0, 0, 0, 0.5, 0.08, 0.5)]);
+  return bake(P);
+}
+const HORSE_GEO = horseGeo();
 function cavalryGeo() {
   const HC = '#8a5a35', H2 = '#6b4226', A = '#2f5d8a', A2 = '#24476b', P = [];
   P.push([G.box, HC, mx(0, 0.95, 0, 0, 0, 0, 0.62, 0.62, 1.5)]); // horse body
@@ -605,6 +616,11 @@ function buildRiceField() {
   };
   spot('paddy', 'rice', 'rice_time', RICE.paddyTile, new V3(19.15, 0.4, 11.4), 'chop', pd);
   spot('pond', 'fish', 'pond_time', RICE.pondTile, new V3(18.2, 0.2, 17.6), 'pull', pn);
+  // the stable: a little roof on posts, hay, and the horse you can buy
+  const sb = new THREE.Group(); sb.position.set(9.4, 0, 9.7); fx.z3.add(sb);
+  for (const [x, z] of [[-1.1, -0.6], [1.1, -0.6], [-1.1, 0.6], [1.1, 0.6]]) add(sb, G.cyl6, '#7a4a26', x, 1.1, z, 0, 0, 0, 0.14, 2.2, 0.14);
+  add(sb, G.box, '#b5402e', 0, 2.25, 0, 0, 0, 0, 2.6, 0.12, 1.6); add(sb, G.box, '#e2c04a', 0.8, 0.25, 0.3, 0, 0.3, 0, 0.7, 0.5, 0.5);
+  fx.stableHorse = new THREE.Mesh(HORSE_GEO, VMAT); fx.stableHorse.position.set(-0.2, 0, 0); fx.stableHorse.rotation.y = PI / 2; sb.add(fx.stableHorse);
   // the rice cook's station: a table with a big wooden rice tub
   const st = new THREE.Group(); fx.z3.add(st);
   add(st, G.box, '#9a6235', 13.8, 0.4, 14, 0, 0, 0, 1.9, 0.8, 1.0); add(st, G.box, '#c98d55', 13.8, 0.82, 14, 0, 0, 0, 2.0, 0.06, 1.1);
@@ -834,6 +850,12 @@ function unlock(t: Loose, instant: boolean) {
   }
   if (id === 'carry') state.carry = 1;
   if (id === 'speed') state.speedUp = true;
+  if (id === 'horse') { // you mount up: the horse goes under you, your legs tuck in
+    state.horse = true; fx.stableHorse.visible = false;
+    const h = new THREE.Mesh(HORSE_GEO, VMAT); player.ch.group.add(h); player.ch.lift = 0.82;
+    player.ch.legL.visible = false; player.ch.legR.visible = false; player.ch.horse = h;
+    if (!instant) { pop(h); puffs(player.pos.clone().add(new V3(0, 0.6, 0)), 8, '#e9e4d6', 1.2); }
+  }
   if (id === 'fishspeed') state.fishSpeed = true;
   if (id === 'pot2') { state.pot2 = true; instant ? (fx.pot2.visible = true) : pop(fx.pot2); }
   if (id === 'conveyor') { belt.on = true; instant ? (belt.g.visible = true) : pop(belt.g); }
@@ -1184,7 +1206,7 @@ function updatePlayer(dt: number) {
   }
   const len = Math.hypot(ix, iy); if (len > 1) { ix /= len; iy /= len; }
   // screen right = (1,0,-1)/sqrt2, screen up = (-1,0,-1)/sqrt2 for the 45-degree camera
-  const s2 = Math.SQRT1_2, speed = tune.run_speed * (state.speedUp ? tune.speed_mult : 1);
+  const s2 = Math.SQRT1_2, speed = playerSpeed(tune.run_speed, state.speedUp, tune.speed_mult, state.horse, tune.horse_speed_mult);
   const tx = (ix - iy) * s2 * speed, tz = (-ix - iy) * s2 * speed, k = Math.min(1, dt * 16);
   player.vel.x += (tx - player.vel.x) * k; player.vel.z += (tz - player.vel.z) * k;
   const nx = player.pos.x + player.vel.x * dt, nz = player.pos.z + player.vel.z * dt;
@@ -1348,7 +1370,7 @@ function reset() {
   setSeed(seedFrom(SEED));
   while (scene3.children.length) scene3.remove(scene3.children[0]);
   tweens = []; pops = []; floats = []; for (const k in pools) pools[k].length = 0;
-  state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, fishSpeed: false, pot2: false, gateOpen: false, gateAnim: 0,
+  state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, fishSpeed: false, horse: false, pot2: false, gateOpen: false, gateAnim: 0,
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
@@ -1366,7 +1388,7 @@ function reset() {
     const o = [[0, -2, 1.1], [-1.45, -2, 0.5], [2.3, -2, 0.85], [3.3, 0, 0.8]];
     if (state.pot2) o.push([4.3, -2, 0.85], [5.45, -2, 0.5]);
     if (state.gateOpen) o.push([14.2, -2.4, 1.1], [12.9, -2.4, 0.5], [16.6, -0.6, 0.8]);
-    if (state.gate3Open) o.push([13.8, 14, 1.1], [12.4, 14, 0.5], [13.8, 16.3, 0.8], [19.15, 10.7, 1.6], [19.0, 17.6, 1.9]);
+    if (state.gate3Open) o.push([9.4, 9.7, 1.0], [13.8, 14, 1.1], [12.4, 14, 0.5], [13.8, 16.3, 0.8], [19.15, 10.7, 1.6], [19.0, 17.6, 1.9]);
     if (state.gate4Open) o.push([14, 26.5, 1.6], [12.4, 26.5, 0.5], [13.8, 29.4, 0.8], [19.4, 23.0, 1.3], [19.2, 29.6, 1.0]);
     return o;
   };
@@ -1424,6 +1446,7 @@ function buildFigures() {
   add(g, G.box, '#e8964a', 0, -0.15, -1.4, 0, 0, 0, 27, 0.3, 11.5); // three rows: customers behind, workers, items in front
   const list: Loose[] = [];
   const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier'], ['hearthcook', 'Hearth cook'], ['woodcutter', 'Woodcutter'], ['cashier', 'Cashier']];
+  { const m = new THREE.Mesh(HORSE_GEO, VMAT); m.position.set(9.2, 0, -6.0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Your horse', m.position.clone().add(new V3(0, 2.4, -0.6))]); }
   chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-12 + i * 2.2, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
   ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(-6.6 + i * 3.0, 0, -6.0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
   { const c = makeChar('general'); c.group.scale.setScalar(1.35); c.group.position.set(-0.6, 0, -6.0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.6); list.push(['General', c.group.position.clone().add(new V3(0, 3.6, -0.6))]); }
