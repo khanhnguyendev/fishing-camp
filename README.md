@@ -21,6 +21,7 @@ An arcade idle game in the browser. You only move; every action happens when you
 | Drag anywhere (mouse or touch) | Floating joystick |
 | Stand on a tile | Fish, chop, harvest, drop off, pick up, collect cash, or (standing still) pay for an unlock |
 | P or the gear button | Pause (R in the pause screen erases the save) |
+| L or the chart button | The camp ledger: each zone's coins per second |
 | M | Mute music and sound |
 
 **The loop:** catch a tuna at a bamboo rod → carry it to the chef's board → the pot makes 4 bowls
@@ -52,6 +53,11 @@ price tile to pay for the next unlock. Every hire takes over a job you were doin
 | Farmer · pond fisher · field carrier | 1,200 · 1,200 · 1,500 | Rice and fish to the rice cook; rice balls to the cavalry |
 | Great hearth gate | 8,000 | Opens zone 4 |
 | Woodcutter · ice fisher | 5,000 each | Firewood to the fire; fish to the hearth |
+| Cashier (one per counter) | 300 · 900 · 2,500 · 9,000 | Moves that counter's cash into your wallet |
+| Hearth carrier | 6,000 | Hot pots to the generals |
+| Horse | 2,500 | Ride everywhere 1.6× faster (stable at the rice field) |
+| STOVE · RODS · STAFF · GRILL · RICE TUB · CAULDRON | from 200, ×1.8 a level | Levels 1–5: each level 25% faster (STAFF: workers walk faster and carry more) |
+| LANTERNS (one per counter) | 300 · 1,000 · 3,000 · 10,000, ×1.8 a level | Levels 1–5: each level, customers there pay 8% more |
 
 ### Events
 
@@ -60,6 +66,12 @@ price tile to pay for the next unlock. Every hire takes over a job you were doin
   soup; serve them within 60 s for a chest of 600 coins.
 - **Blizzard** (every 3–5 min, once the great hearth is open): the river and pond freeze for 30 s,
   so only the ice hole gives fish, and if the hearth's fire is out, every customer pays half.
+- **VIP orders** (every 2.5–4 min): a crowned customer at a random open counter orders 12 dishes in
+  60 s, served first, for a chest worth 3× the order.
+
+**Also:** a **quest board** under your coins with 16 goals and rewards, **tips** for serving by hand
+(a combo up to ×10 adds up to +50%), and **offline income** from every zone that runs itself
+(the conveyor in zone 1, a carrier in zones 2–4).
 
 Each zone has its own music, synthesized in the browser. Progress saves after every unlock, and
 the camp earns while you are away (up to 2 hours, once the conveyor runs).
