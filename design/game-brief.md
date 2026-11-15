@@ -91,6 +91,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Offline income for the whole camp: every zone whose dishes reach the counter without you (conveyor, carriers) earns while you are away; a carrier for the great hearth
 - [x] The horse: bought at the rice field's stable, you ride everywhere 1.6x faster
 - [x] Quest board: 16 goals in order (data/quest_list.json), each with a coin reward, shown under the coins
+- [x] Tips: hand deliveries build a combo (up to x10) and each dish tips price x 5% x combo
 
 ## Your systems
 - hiring workers · in the slice

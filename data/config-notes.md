@@ -141,3 +141,8 @@ The board shows one quest at a time, in the file's order. Each entry:
 - `unlock`: for `unlock`, the unlock id (as in `src/game/unlocks.ts`)
 - `target`: how many (dishes, coins, the level; 1 for an unlock)
 - `reward`: coins paid when it is done
+
+## Tips (asked for after play: reward serving by hand)
+- `tip_rate`: each dish you deliver yourself tips this share of its price, times your combo
+- `tip_window`: seconds between deliveries that keep the combo going (it starts again at 1 after a longer gap)
+- `tip_combo_max`: the highest combo

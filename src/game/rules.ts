@@ -80,6 +80,16 @@ export function playerSpeed(base: number, swift: boolean, swiftMult: number, hor
   return base * (swift ? swiftMult : 1) * (horse ? horseMult : 1);
 }
 
+/** The combo after one more hand delivery: +1 within the window (up to the most), otherwise back to 1. */
+export function nextCombo(combo: number, sinceLast: number, window: number, max: number): number {
+  return sinceLast <= window ? Math.min(max, combo + 1) : 1;
+}
+
+/** The tip for one dish delivered by hand: its price x the tip rate x the combo, rounded. */
+export function tipFor(price: number, combo: number, rate: number): number {
+  return Math.round(price * rate * combo);
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

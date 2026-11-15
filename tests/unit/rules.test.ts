@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -180,6 +180,22 @@ describe('playerSpeed', () => {
     expect(playerSpeed(b, false, s, true, h)).toBeCloseTo(b * h, 9);
     expect(playerSpeed(b, true, s, true, h)).toBeCloseTo(b * s * h, 9);
     expect(h).toBeGreaterThan(1);
+  });
+});
+
+describe('tips', () => {
+  it('the combo climbs with quick hand deliveries, caps, and starts over after a pause', () => {
+    const w = v('tip_window'), max = v('tip_combo_max');
+    expect(nextCombo(0, w + 1, w, max)).toBe(1);
+    expect(nextCombo(3, w - 1, w, max)).toBe(4);
+    expect(nextCombo(max, 0.5, w, max)).toBe(max);
+    expect(nextCombo(7, w + 0.01, w, max)).toBe(1);
+  });
+
+  it('a dish tips its price x rate x combo, so a full combo adds half the price at the starting values', () => {
+    expect(tipFor(100, 1, v('tip_rate'))).toBe(Math.round(100 * v('tip_rate')));
+    expect(tipFor(100, v('tip_combo_max'), v('tip_rate'))).toBe(Math.round(100 * v('tip_rate') * v('tip_combo_max')));
+    expect(tipFor(5, 1, v('tip_rate'))).toBe(0); // a single cheap bowl tips nothing; a combo makes it worth it
   });
 });
 

@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { QUESTS, questDone, questProgress } from './game/quests';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
@@ -1239,7 +1239,12 @@ function updatePlayer(dt: number) {
   for (const c of counters) {
     if (!c.active) continue;
     if (top && top.type === c.dish && inTile(P, c.drop) && c.pile.items.length < c.pile.limit()) {
-      giveTo(player, c.pile, top); player.cd = tune.pickup_interval; sfx.drop(state.streak++); state.streakT = 0.5; return;
+      giveTo(player, c.pile, top); player.cd = tune.pickup_interval; sfx.drop(state.streak++); state.streakT = 0.5;
+      // serving by hand earns a tip that grows with your combo
+      state.combo = nextCombo(state.combo, state.t - state.lastServe, tune.tip_window, tune.tip_combo_max); state.lastServe = state.t;
+      const tip = tipFor(tune[c.priceKey], state.combo, tune.tip_rate);
+      if (tip > 0) { state.wallet += tip; state.earned += tip; floats.push({ p: c.drop.clone().add(new V3(0, 1.6, 0)), txt: `tip +${tip}`, t: 0, col: '#9fe870' }); }
+      return;
     }
     if (inTile(P, c.cashPos) && c.cash.top()) {
       const it = c.cash.take(c.cash.top()); const v = it.value + c.cash.extra; c.cash.extra = 0;
@@ -1384,7 +1389,7 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {} }; // 1e9 s: no blizzard until the great hearth opens
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {}, combo: 0, lastServe: -99 }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
@@ -1473,6 +1478,13 @@ function drawHud() {
   // cash total, top-left
   ctx.fillStyle = 'rgba(48,28,18,0.72)'; const sy = SAFE_TOP(); rrect(ctx, 18, 16 + sy, 236, 58, 29); ctx.fill();
   drawCoin(ctx, 48, 45 + sy, 19); text(fmt(Math.round(state.walletShown)), 80, 46 + sy, 34, '#ffffff', 'left');
+  // combo badge beside the coins while your hand-delivery streak is alive
+  if (state.combo > 1 && state.t - state.lastServe <= tune.tip_window) {
+    const left = 1 - (state.t - state.lastServe) / tune.tip_window;
+    ctx.fillStyle = 'rgba(60,110,30,0.85)'; rrect(ctx, 262, 22 + sy, 118, 46, 23); ctx.fill();
+    ctx.fillStyle = '#9fe870'; ctx.fillRect(276, 58 + sy, 90 * left, 4);
+    text(`COMBO x${state.combo}`, 321, 42 + sy, 18, '#ffffff');
+  }
   // the quest board: the current goal, how far along, and its reward
   const q = QUESTS[state.quest];
   if (q) {
