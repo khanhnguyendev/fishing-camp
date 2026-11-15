@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -816,6 +816,7 @@ function unlock(t: Loose, instant: boolean) {
   const carriers: Record<string, Loose> = {
     carrier2: [piles.sushi, new V3(16.6, 0, 0.75), counters[1]],
     carrier3: [piles.riceballs, new V3(RICE.pickup.x, 0, RICE.pickup.z), counters[2]],
+    carrier4: [piles.hotpots, new V3(HEARTH.pickup.x, 0, HEARTH.pickup.z), counters[3]],
   };
   if (carriers[id]) {
     const [pile, at, counter] = carriers[id];
@@ -1001,7 +1002,7 @@ function updateCounters(dt: number) {
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
             const value = blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty);
-            state.earned += value; if (c.zone === 1 && belt.on) state.autoWin += value;
+            state.earned += value; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
             const cash = newItem('cash'); cash.value = value;
             const from = head.clone(); from.x += face * 0.6;
             if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
@@ -1019,7 +1020,7 @@ function updateCounters(dt: number) {
 }
 /** Pays a dish's coins out at a counter's cash pile, from where it was eaten. */
 function payOut(c: Loose, from: Loose, value: number, gold: boolean) {
-  state.earned += value; if (c.zone === 1 && belt.on) state.autoWin += value;
+  state.earned += value; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
   const cash = newItem('cash'); cash.value = value;
   if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
   else { c.cash.extra += value; fly(cash, from, () => c.cashPos.clone(), 0.5, 1.5, () => release(cash)); }

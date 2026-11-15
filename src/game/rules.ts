@@ -67,6 +67,15 @@ export function levelSpeed(level: number, step: number): number {
 }
 
 /**
+ * True when a zone's dishes reach its counter without the player: zone 1 with the conveyor, zones 2-4
+ * once their carrier is hired. Those zones count toward offline income.
+ */
+export function zoneAutomated(zone: number, done: string[]): boolean {
+  const needs: Record<number, string> = { 1: 'conveyor', 2: 'carrier2', 3: 'carrier3', 4: 'carrier4' };
+  return !!needs[zone] && done.includes(needs[zone]);
+}
+
+/**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.
  */

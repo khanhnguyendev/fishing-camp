@@ -82,6 +82,7 @@ holds no comments. The values themselves are in `data/config.json`.
 - `carrier_cap`: dishes a carrier takes per trip, table to counter (carriers never touch cash)
 - `price_carrier2`: coins to hire the grill yard's carrier (sushi table -> gold soldiers' counter)
 - `price_carrier3`: coins to hire the rice field's carrier (rice-ball table -> cavalry counter)
+- `price_carrier4`: coins to hire the great hearth's carrier (hot-pot table -> generals' counter)
 
 ## General's visit (GDD 6: "a big customer orders 30 bowls within 60 seconds and rewards a chest of cash")
 - `general_first`: seconds of play before the first visit (needs all three river fishers hired)
@@ -123,3 +124,6 @@ holds no comments. The values themselves are in `data/config.json`.
 - `upgrade_max`: how many levels each upgrade has
 - `upgrade_speed_step`: each level of a stove, the rods, the grill, the rice tub or the cauldron makes it this much faster (1 + step x level)
 - `staff_speed_step`: each STAFF level makes every worker walk this much faster; every 2 levels a fisher, farmer or woodcutter carries 1 more, a carrier 1 more each level
+
+## Offline income (asked for after play: "offline income for the whole camp")
+- A zone earns while you are away when its dishes reach the counter without you: zone 1 with the conveyor, zones 2-4 with their carrier. The game measures what those zones earn while you play and pays that rate for the time away (`offline_cap`, `offline_factor`).

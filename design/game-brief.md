@@ -88,6 +88,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Blizzard: every few minutes once the hearth is open, the river and pond freeze for 30 s (only the ice hole gives fish); with the hearth fire out, customers pay half (GDD 6)
 - [x] Cashiers: one hire per counter moves its cash pile into your wallet
 - [x] Facility upgrades, levels 1-5: stove, rods, grill, rice tub, cauldron (each level 25% faster) and staff (workers walk faster, carry more)
+- [x] Offline income for the whole camp: every zone whose dishes reach the counter without you (conveyor, carriers) earns while you are away; a carrier for the great hearth
 
 ## Your systems
 - hiring workers · in the slice

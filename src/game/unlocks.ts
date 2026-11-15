@@ -25,6 +25,7 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'up_hearth', kind: 'upgrade', label: 'CAULDRON', price: 'price_up_hearth', x: 16.6, z: 26.6, req: ['gate4'], levels: true },
   { id: 'gate3', kind: 'zone', label: 'RICE FIELD', price: 'price_gate3', x: 14, z: 6.0, req: ['gate'], focus: [14, 14] },
   { id: 'farmer', kind: 'hire', label: 'FARMER', price: 'price_farmer', x: 20.4, z: 15.2, size: 1.2, req: ['gate3'], focus: [19.2, 12] },
+  { id: 'carrier4', kind: 'hire', label: 'CARRIER', price: 'price_carrier4', x: 10.6, z: 25.0, size: 1.2, req: ['gate4'], focus: [10.4, 28] },
   { id: 'carrier3', kind: 'hire', label: 'CARRIER', price: 'price_carrier3', x: 10.4, z: 15.6, size: 1.2, req: ['gate3'], focus: [10.5, 15] },
   { id: 'gate4', kind: 'zone', label: 'GREAT HEARTH', price: 'price_gate4', x: 14, z: 18.8, req: ['gate3'], focus: [14, 26.5] },
   { id: 'woodcutter', kind: 'hire', label: 'WOODCUTTER', price: 'price_woodcutter', x: 20.2, z: 26.4, size: 1.2, req: ['gate4'], focus: [19.4, 23.6] },

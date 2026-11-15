@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -158,6 +158,18 @@ describe('facility upgrades', () => {
     expect(carryCap('fish', 'worker', 0, carryTuning, 2)).toBe(v('worker_cap') + 1);
     expect(carryCap('plate', 'carrier', 0, carryTuning, 3)).toBe(v('carrier_cap') + 3);
     expect(carryCap('fish', 'player', 0, carryTuning, 5)).toBe(v('fish_cap')); // STAFF is not yours
+  });
+});
+
+describe('zoneAutomated', () => {
+  it('counts a zone toward offline income once its dishes reach the counter without you', () => {
+    expect(zoneAutomated(1, [])).toBe(false);
+    expect(zoneAutomated(1, ['conveyor'])).toBe(true);
+    expect(zoneAutomated(2, ['conveyor', 'gate'])).toBe(false);
+    expect(zoneAutomated(2, ['carrier2'])).toBe(true);
+    expect(zoneAutomated(3, ['carrier3'])).toBe(true);
+    expect(zoneAutomated(4, ['cashier4'])).toBe(false); // a cashier alone does not carry dishes
+    expect(zoneAutomated(4, ['carrier4'])).toBe(true);
   });
 });
 
