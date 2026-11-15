@@ -92,6 +92,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] The horse: bought at the rice field's stable, you ride everywhere 1.6x faster
 - [x] Quest board: 16 goals in order (data/quest_list.json), each with a coin reward, shown under the coins
 - [x] Tips: hand deliveries build a combo (up to x10) and each dish tips price x 5% x combo
+- [x] VIP orders: a crowned customer at a random open counter orders 12 dishes in 60 s for a chest worth 3x
 
 ## Your systems
 - hiring workers · in the slice

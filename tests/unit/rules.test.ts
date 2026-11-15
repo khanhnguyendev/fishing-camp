@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { vipReward, nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -196,6 +196,17 @@ describe('tips', () => {
     expect(tipFor(100, 1, v('tip_rate'))).toBe(Math.round(100 * v('tip_rate')));
     expect(tipFor(100, v('tip_combo_max'), v('tip_rate'))).toBe(Math.round(100 * v('tip_rate') * v('tip_combo_max')));
     expect(tipFor(5, 1, v('tip_rate'))).toBe(0); // a single cheap bowl tips nothing; a combo makes it worth it
+  });
+});
+
+describe('vipReward', () => {
+  it("a VIP's chest is the order's value times the bonus", () => {
+    expect(vipReward(v('plate_price'), v('vip_count'), v('vip_bonus'))).toBe(Math.round(v('plate_price') * v('vip_count') * v('vip_bonus')));
+    expect(vipReward(5, 12, 0)).toBe(0);
+  });
+
+  it('a VIP order can be eaten in time at a counter', () => {
+    expect(v('vip_count') / v('vip_time')).toBeLessThanOrEqual(v('eat_rate'));
   });
 });
 

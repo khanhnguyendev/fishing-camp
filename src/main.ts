@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, vipReward, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { QUESTS, questDone, questProgress } from './game/quests';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
@@ -421,10 +421,11 @@ function drawPriceTile(t: Loose) {
   t.tex.t.needsUpdate = true; t.shown = remaining;
 }
 const BUBBLES: Record<string, Loose> = {};
-function bubbleTex(dish: string, n: number) {
-  const key = dish + n; if (BUBBLES[key]) return BUBBLES[key];
+function bubbleTex(dish: string, n: number, vip = false) {
+  const key = dish + n + (vip ? 'v' : ''); if (BUBBLES[key]) return BUBBLES[key];
   return (BUBBLES[key] = canvasTex(128, 128, (g: Loose) => {
     g.fillStyle = '#ffffff'; rrect(g, 10, 8, 108, 90, 26); g.fill();
+    if (vip) { g.lineWidth = 7; g.strokeStyle = '#e1b23a'; g.stroke(); }
     g.beginPath(); g.moveTo(54, 96); g.lineTo(64, 120); g.lineTo(76, 96); g.fill();
     if (dish === 'hotpot') {
       g.fillStyle = '#2a2626'; g.beginPath(); g.moveTo(26, 40); g.lineTo(80, 40); g.lineTo(72, 78); g.lineTo(34, 78); g.closePath(); g.fill();
@@ -440,7 +441,7 @@ function bubbleTex(dish: string, n: number) {
       g.fillStyle = '#a96b3a'; g.fillRect(18, 60, 70, 12);
       for (let i = 0; i < 3; i++) { g.fillStyle = '#fbfaf3'; g.fillRect(22 + i * 22, 44, 18, 16); g.fillStyle = '#ff8a5c'; g.fillRect(20 + i * 22, 38, 22, 8); }
     }
-    g.fillStyle = '#4a2e20'; g.font = `bold 30px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('x' + n, 104, 52);
+    g.fillStyle = '#4a2e20'; g.font = `bold ${n >= 10 ? 24 : 30}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('x' + n, n >= 10 ? 100 : 104, 52);
   }));
 }
 
@@ -1009,7 +1010,8 @@ function updateCounters(dt: number) {
       const b = c.base[s.i].p;
       s.bub.position.set(b.x - face * s.d, c.bubY + Math.sin(state.t * 3 + s.i) * 0.06, b.z);
       s.bub.visible = c.active && s.phase === 'ready' && s.want > 0;
-      if (s.bub.visible && s.shownWant !== s.want) { s.bub.material.map = bubbleTex(c.dish, s.want).t; s.shownWant = s.want; }
+      const shown = s.want + (s.vip ? 1000 : 0);
+      if (s.bub.visible && s.shownWant !== shown) { s.bub.material.map = bubbleTex(c.dish, s.want, !!s.vip).t; s.shownWant = shown; }
     }
     if (!c.active) continue;
     if (c.zone === 1 && state.general && state.general.phase === 'eat') continue; // the general eats first
@@ -1018,9 +1020,10 @@ function updateCounters(dt: number) {
       const top = c.pile.top();
       if (top) {
         let s = null;
-        for (let k = 0; k < c.slots.length; k++) { const q = c.slots[(c.rr + k) % c.slots.length]; if (q.phase === 'ready' && q.want > 0) { s = q; c.rr = (c.rr + k + 1) % c.slots.length; break; } }
+        if (c.slots[0].vip && c.slots[0].phase === 'ready' && c.slots[0].want > 0) s = c.slots[0]; // the VIP is served first
+        else for (let k = 0; k < c.slots.length; k++) { const q = c.slots[(c.rr + k) % c.slots.length]; if (q.phase === 'ready' && q.want > 0) { s = q; c.rr = (c.rr + k + 1) % c.slots.length; break; } }
         if (s) {
-          c.cd = 1 / tune.eat_rate; c.pile.take(top); s.want--;
+          c.cd = 1 / tune.eat_rate; c.pile.take(top); s.want--; if (s.vip && state.vip) state.vip.eaten++;
           const head = c.base[s.i].p.clone(); head.y = 1.3; const slot = s;
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
@@ -1291,6 +1294,45 @@ function updateQuests() {
   floats.push({ p: player.pos.clone().add(new V3(0, 2.6, 0)), txt: `Quest done! +${fmt(q.reward)}`, t: -0.6, col: '#ffe27a' });
   save();
 }
+const ZONE_NAMES = ['soup counter', 'grill yard', 'rice field', 'great hearth'];
+/** A chest bursts onto a counter's cash pile: `total` coins in ten bundles. */
+function chestBurst(c: Loose, from: Loose, total: number) {
+  const n = 10, each = total / n;
+  for (let i = 0; i < n; i++) {
+    const cash = newItem('cash'); cash.value = each;
+    if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.6, 2.2, undefined, i * 0.05); }
+    else { c.cash.extra += each; fly(cash, from, () => c.cashPos.clone(), 0.6, 2.2, () => release(cash), i * 0.05); }
+  }
+  state.earned += total; puffs(from, 10, '#ffe27a', 1.4);
+  floats.push({ p: from.clone().add(new V3(0, 1, 0)), txt: `CHEST +${fmt(total)}`, t: -0.3, col: '#ffe27a' });
+}
+/** VIP orders: now and then a crowned customer steps up at an open counter, orders a lot, and pays a chest if served in time. */
+function updateVip(dt: number) {
+  if (!state.vip) {
+    fx.crown.visible = false;
+    if (state.done.includes('fisher1') && state.playTime >= state.vipNext && scene === 'play' && !state.welcome) {
+      const open = counters.filter((c: Loose) => c.active), c = open[Math.floor(rng() * open.length)], s = c.slots[0];
+      s.vip = true; s.want = tune.vip_count; s.phase = 'ready'; s.d = 0;
+      state.vip = { ci: counters.indexOf(c), need: tune.vip_count, eaten: 0, t: tune.vip_time };
+      sfx.golden(); buzz(60); events.push({ type: 'vip', zone: c.zone });
+      floats.push({ p: player.pos.clone().add(new V3(0, 3, 0)), txt: `A VIP at the ${ZONE_NAMES[c.zone - 1]}!`, t: -0.8, col: '#ffe27a' });
+    }
+    return;
+  }
+  const v = state.vip, c = counters[v.ci], s = c.slots[0];
+  v.t -= dt;
+  const outcome = visitOutcome(v.eaten, v.need, v.t);
+  if (outcome !== 'eating') {
+    const head = c.base[0].p.clone(); head.y = c.bubY - 0.4;
+    if (outcome === 'won') { chestBurst(c, head, vipReward(tune[c.priceKey], v.need, tune.vip_bonus)); sfx.bell(); sfx.cheer(); events.push({ type: 'vip_won' }); }
+    else { s.want = 0; s.phase = 'out'; floats.push({ p: head.clone().add(new V3(0, 1, 0)), txt: 'The VIP leaves...', t: -0.6, col: '#ffc9b0' }); events.push({ type: 'vip_lost' }); }
+    s.vip = false; state.vip = null; state.vipNext = state.playTime + rr(tune.vip_min, tune.vip_max);
+    return;
+  }
+  // look: a gold crown floats over the VIP
+  const b = c.base[0].p;
+  fx.crown.visible = s.phase === 'ready'; fx.crown.position.set(b.x - c.face * s.d, c.bubY - 0.8 + Math.sin(state.t * 4) * 0.05, b.z + 0.35); fx.crown.rotation.y += dt * 2;
+}
 function updateCamera(dt: number) {
   let target = player.pos, k = tune.cam_lag;
   if (state.glide) { state.glide.t += dt; if (state.glide.t < tune.glide_time * 0.72) { target = state.glide.p; k = 5; } else { k = 7; if (state.glide.t > tune.glide_time) state.glide = null; } }
@@ -1389,13 +1431,17 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {}, combo: 0, lastServe: -99 }; // 1e9 s: no blizzard until the great hearth opens
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {}, combo: 0, lastServe: -99, vip: null, vipNext: tune.vip_first }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
   const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-8, 20, 10); scene3.add(sun);
   fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0, ice: 0, snowT: 0, windT: 0 };
   buildEnvironment(); buildRods(); buildKitchen(); buildRiceField(); buildHearth(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
+  fx.crown = new THREE.Group(); fx.crown.visible = false; fx.crown.scale.setScalar(1.4); world.add(fx.crown);
+  add(fx.crown, new THREE.CylinderGeometry(0.3, 0.26, 0.16, 10), '#e1b23a', 0, 0, 0);
+  for (let k = 0; k < 5; k++) { const a = k / 5 * 2 * PI; add(fx.crown, G.cone4, '#ffd34d', Math.cos(a) * 0.24, 0.16, Math.sin(a) * 0.24, 0, 0, 0, 0.12, 0.2, 0.12); }
+  add(fx.crown, G.sph, '#c8302a', 0, 0.02, 0.28, 0, 0, 0, 0.1);
   fx.general = makeChar('general'); fx.general.group.scale.setScalar(1.35); fx.general.group.visible = false; world.add(fx.general.group); blob(fx.general.group, 0.6);
   fx.generalTex = canvasTex(160, 128, () => {}); fx.generalShown = -1;
   fx.generalBub = new THREE.Sprite(new THREE.SpriteMaterial({ map: fx.generalTex.t, depthTest: false, fog: false })); fx.generalBub.scale.set(1.9, 1.5, 1); fx.generalBub.renderOrder = 5; fx.generalBub.visible = false; world.add(fx.generalBub);
@@ -1422,7 +1468,7 @@ function tick3D(dt: number) { // the camp keeps running under every overlay
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
-  updateGeneral(dt); if (state.questFlash > 0) state.questFlash -= dt;
+  updateGeneral(dt); updateVip(dt); if (state.questFlash > 0) state.questFlash -= dt;
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
@@ -1517,6 +1563,14 @@ function drawHud() {
     ctx.fillStyle = out ? 'rgba(120,24,24,0.85)' : 'rgba(30,60,90,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#e8f8ff'; ctx.lineWidth = 3; ctx.stroke();
     text(out ? `BLIZZARD   fire out: customers pay half   ${Math.ceil(state.blizzardLeft)}s` : `BLIZZARD   keep the fire lit   ${Math.ceil(state.blizzardLeft)}s`, W / 2, gy + 28, 26, '#ffffff');
+  }
+  // VIP order banner, below the others that are showing
+  if (state.vip) {
+    const v = state.vip, w = Math.min(520, W - 32), base = H > W ? 150 + SAFE_TOP() : 18;
+    const gy = base + (state.goldLeft > 0 ? 64 : 0) + (state.blizzardLeft > 0 ? 64 : 0) + (state.general && state.general.phase === 'eat' ? 64 : 0);
+    ctx.fillStyle = 'rgba(90,60,10,0.88)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
+    ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 3; ctx.stroke();
+    text(`VIP ORDER   ${ZONE_NAMES[counters[v.ci].zone - 1]}   ${v.eaten}/${v.need}   ${Math.ceil(v.t)}s`, W / 2, gy + 28, 24, '#ffe9c4');
   }
   // general's visit banner
   if (state.general && state.general.phase === 'eat') {

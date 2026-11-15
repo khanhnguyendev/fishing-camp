@@ -90,6 +90,11 @@ export function tipFor(price: number, combo: number, rate: number): number {
   return Math.round(price * rate * combo);
 }
 
+/** A VIP's chest: the order's value (price x dishes) times the bonus, rounded. */
+export function vipReward(price: number, count: number, bonus: number): number {
+  return Math.round(price * count * bonus);
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

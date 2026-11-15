@@ -146,3 +146,10 @@ The board shows one quest at a time, in the file's order. Each entry:
 - `tip_rate`: each dish you deliver yourself tips this share of its price, times your combo
 - `tip_window`: seconds between deliveries that keep the combo going (it starts again at 1 after a longer gap)
 - `tip_combo_max`: the highest combo
+
+## VIP orders (asked for after play)
+- `vip_first`: seconds of play before the first VIP (needs the first fisher hired)
+- `vip_min`, `vip_max`: shortest and longest gap between VIPs (s)
+- `vip_count`: dishes a VIP orders at their counter (served before anyone else there)
+- `vip_time`: seconds they wait
+- `vip_bonus`: the chest pays this many times the order's value when it is filled in time (each dish also pays as usual)
