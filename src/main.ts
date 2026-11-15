@@ -105,6 +105,7 @@ const ROLES = {
   ricecook:  { tunic: '#f6f0dc', pants: '#5b6b4a', hair: '#2b1d16', belt: '#c8402e' },
   farmer:    { tunic: '#3f5aa8', pants: '#5a4636', hair: '#2b1d16', belt: '#c99a52' },
   carrier:   { tunic: '#c9773a', pants: '#4a3b2c', hair: '#2b1d16', belt: '#f2c94c' },
+  cashier:   { tunic: '#2f8a8a', pants: '#3a2c28', hair: '#20150f', belt: '#e1b23a' },
   general:   { tunic: '#8e1f1f', pants: '#2b2b35', hair: '#20150f', belt: '#e1b23a' },
   hearthcook: { tunic: '#6b4a8a', pants: '#3a2c28', hair: '#20150f', belt: '#e1b23a' },
   woodcutter: { tunic: '#7a4a2a', pants: '#3a3a42', hair: '#20150f', belt: '#3a3a42' },
@@ -161,6 +162,10 @@ function makeChar(role: string) {
     add(head, G.hemi, '#2b2b35', 0, 0.06, -0.03, -0.3, 0, 0, 0.9, 0.82, 0.9);
     add(head, new THREE.TorusGeometry(0.42, 0.05, 4, 14, PI), '#e1b23a', 0, 0.46, 0.08, -0.15, 0, 0);
     add(head, G.cone4, '#e1b23a', 0, 0.6, 0.15, 0, 0, 0, 0.18, 0.32, 0.08);
+  } else if (role === 'cashier') { // a square merchant's hat and an abacus held in front
+    add(head, G.box, '#1d1a1f', 0, 0.36, -0.02, -0.12, 0, 0, 0.62, 0.32, 0.62); add(head, G.box, '#c8302a', 0, 0.54, -0.02, -0.12, 0, 0, 0.66, 0.05, 0.66);
+    add(body, G.box, '#8a5a2b', 0, 0.72, 0.36, 0, 0, 0, 0.56, 0.36, 0.05);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) add(body, G.sph, r === 1 ? '#c8302a' : '#f2d84a', -0.18 + c * 0.12, 0.62 + r * 0.1, 0.39, 0, 0, 0, 0.07);
   } else if (role === 'carrier') { // a shoulder yoke with a basket at each end, and a tied headband
     add(body, G.box, '#8a5a2b', 0, 1.02, -0.05, 0, 0, 0, 1.7, 0.07, 0.07);
     for (const x of [-0.82, 0.82]) { add(body, G.box, '#d9c08a', x, 0.78, -0.05, 0, 0, 0, 0.02, 0.45, 0.02); add(body, new THREE.CylinderGeometry(0.2, 0.15, 0.24, 8), '#c99a52', x, 0.5, -0.05); }
@@ -809,6 +814,14 @@ function unlock(t: Loose, instant: boolean) {
     w.who = 'carrier'; w.pick = { pile, at }; w.counter = counter; w.state = 'toPick'; w.wait = 0; workers.push(w);
     if (!instant) pop(w.ch.group);
   }
+  const cashiers: Record<string, number> = { cashier1: 0, cashier2: 1, cashier3: 2, cashier4: 3 };
+  if (id in cashiers) {
+    const counter = counters[cashiers[id]], cp = counter.cashPos;
+    const w = makeCarrier('cashier', t.def.x, t.def.z, false);
+    w.who = 'cashier'; w.counter = counter; w.state = 'toStand'; w.stand = new V3(cp.x - counter.face * 1.0, 0, cp.z + 0.9);
+    w.face = counter.face > 0 ? Math.PI * 0.75 : -Math.PI * 0.75; workers.push(w);
+    if (!instant) pop(w.ch.group);
+  }
   if (id === 'carry') state.carry = 1;
   if (id === 'speed') state.speedUp = true;
   if (id === 'fishspeed') state.fishSpeed = true;
@@ -1104,9 +1117,22 @@ function updateCarrierWorker(w: Loose, dt: number) {
     if (!w.stack.length) w.state = 'toPick';
   }
 }
+/** A cashier walks to the side of a counter's cash pile and moves its bundles into your wallet, one at a time. */
+function updateCashier(w: Loose, dt: number) {
+  if (w.state === 'toStand') { if (moveTo(w, w.stand, dt, tune.worker_speed)) w.state = 'work'; return; }
+  w.vel.set(0, 0, 0); w.facing = w.face; w.mode = w.counter.cash.items.length ? 'chop' : null;
+  const top = w.counter.cash.top();
+  if (top && w.cd <= 0) {
+    w.cd = tune.cashier_interval;
+    const it = w.counter.cash.take(top), v = it.value + w.counter.cash.extra; w.counter.cash.extra = 0;
+    const near = w.pos.distanceTo(player.pos) < 9;
+    fly(it, it.mesh.position, () => w.pos.clone().add(new V3(0, 1.0, 0)), 0.25, 0.8, () => { state.wallet += v; release(it); if (near) sfx.coin(state.coinStreak++); state.coinT = 0.6; });
+  }
+}
 function updateWorkers(dt: number) {
   for (const w of workers) {
     w.mode = null; w.cd -= dt;
+    if (w.who === 'cashier') { updateCashier(w, dt); continue; }
     if (w.who === 'carrier') { updateCarrierWorker(w, dt); continue; }
     if (w.state === 'toRod') { if (moveTo(w, w.rod.tile, dt, tune.worker_speed)) w.state = 'fish'; }
     else if (w.state === 'fish') { w.vel.set(0, 0, 0); if (!w.canTake(w.item) && !w.stack.some((i: Loose) => i.flying)) w.state = 'toDrop'; }
@@ -1372,8 +1398,8 @@ function buildFigures() {
   const g = new THREE.Group(); s.add(g);
   add(g, G.box, '#e8964a', 0, -0.15, -1.4, 0, 0, 0, 27, 0.3, 11.5); // three rows: customers behind, workers, items in front
   const list: Loose[] = [];
-  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier'], ['hearthcook', 'Hearth cook'], ['woodcutter', 'Woodcutter']];
-  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-11.5 + i * 2.3, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
+  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier'], ['hearthcook', 'Hearth cook'], ['woodcutter', 'Woodcutter'], ['cashier', 'Cashier']];
+  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-12 + i * 2.2, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
   ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(-6.6 + i * 3.0, 0, -6.0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
   { const c = makeChar('general'); c.group.scale.setScalar(1.35); c.group.position.set(-0.6, 0, -6.0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.6); list.push(['General', c.group.position.clone().add(new V3(0, 3.6, -0.6))]); }
   { const m = new THREE.Mesh(GENERALS_GEO, VMAT); m.position.set(2.4, 0, -6.0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push(['Generals', m.position.clone().add(new V3(0, 2.9, -0.6))]); }

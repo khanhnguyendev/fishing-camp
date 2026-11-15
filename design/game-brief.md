@@ -23,6 +23,8 @@ After play: we should smaller fisher price title or place it another place, curr
 After play: why i press start on my PC it stuck
 After play: there is a bug when money is increasing, users cant take money
 After play: second grill is overlapsed with the door of second yard
+After play: thêm tính năng cashier, tự động lấy tiền
+After play: thêm tính năng nâng cấp các tiện ích có sẵn, ví dụ bếp nấu nhanh hơn, cần câu nhanh hơn, nâng cấp nhân viên. hãy suy nghĩ thêm để mở rộng game này ra
 
 **Pitch:** Run a riverside army camp's kitchen alone — catch fish, cook soup, feed an endless crowd of soldiers — then hire your way out of every job until the camp runs itself.
 
@@ -67,7 +69,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Stations: 3 rods, chef's board + soup pot, fence counter, conveyor, grill (zone 2)
 - [x] Endless soldier crowd; front row has logic with want-bubbles, steps back and refills
 - [x] Price tiles (hire / upgrade / open-zone icons) that drain cash and count down, keeping partial payment; cash flows only while you stand still on one
-- [x] Workers: fishers (rod → board) and carrier/conveyor; workers never touch cash
+- [x] Workers: fishers (rod → board) and carrier/conveyor; only hired cashiers touch cash
 - [x] Zone 1's six unlocks in the GDD's order and prices, then zone 2 (grill, sushi, gold soldiers)
 - [x] Guide arrow to the next useful task for the first 3 minutes
 - [x] Cash counter top corner; money rises from where it was made
@@ -84,6 +86,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Music: a synthesized 60-90 s loop per zone (koto, bamboo flute, taiko), crossfading as you walk between zones (GDD 8)
 - [x] Zone 4, the great hearth: snowy yard, woodpile and ice hole, a hearth that cooks hot pots only while its fire burns, generals as customers, woodcutter and ice-fisher hires
 - [x] Blizzard: every few minutes once the hearth is open, the river and pond freeze for 30 s (only the ice hole gives fish); with the hearth fire out, customers pay half (GDD 6)
+- [x] Cashiers: one hire per counter moves its cash pile into your wallet
 
 ## Your systems
 - hiring workers · in the slice

@@ -112,3 +112,7 @@ holds no comments. The values themselves are in `data/config.json`.
 - `blizzard_min`, `blizzard_max`: shortest and longest gap between blizzards (s)
 - `blizzard_duration`: seconds a blizzard lasts: the river and the pond freeze; only the ice hole gives fish
 - `blizzard_penalty`: what every customer pays, as a share of the price, while the hearth's fire is out in a blizzard
+
+## Cashiers (asked for after play: "a cashier that collects the money automatically"; this replaces the GDD 4 rule that only the player collects cash)
+- `price_cashier1` .. `price_cashier4`: coins to hire the cashier at the soup, sushi, rice-ball and hot-pot counters
+- `cashier_interval`: seconds between bundles a cashier moves from the cash pile into your wallet
