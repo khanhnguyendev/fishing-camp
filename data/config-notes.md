@@ -106,3 +106,9 @@ holds no comments. The values themselves are in `data/config.json`.
 - `fuel_max`: most seconds of burn the fire holds
 - `fuel_start`: seconds of burn the fire has when the gate opens
 - `wood_burn`: seconds of burn one bundle of firewood adds (the fire takes a bundle only when it fits under fuel_max)
+
+## Blizzard (GDD 6: zone 4's event; "without firewood, customers pay less")
+- `blizzard_first`: seconds after the great hearth opens before the first blizzard
+- `blizzard_min`, `blizzard_max`: shortest and longest gap between blizzards (s)
+- `blizzard_duration`: seconds a blizzard lasts: the river and the pond freeze; only the ice hole gives fish
+- `blizzard_penalty`: what every customer pays, as a share of the price, while the hearth's fire is out in a blizzard

@@ -83,6 +83,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] General's visit: 30 bowls in 60 s at the soup counter earns a chest of cash (GDD 6)
 - [x] Music: a synthesized 60-90 s loop per zone (koto, bamboo flute, taiko), crossfading as you walk between zones (GDD 8)
 - [x] Zone 4, the great hearth: snowy yard, woodpile and ice hole, a hearth that cooks hot pots only while its fire burns, generals as customers, woodcutter and ice-fisher hires
+- [x] Blizzard: every few minutes once the hearth is open, the river and pond freeze for 30 s (only the ice hole gives fish); with the hearth fire out, customers pay half (GDD 6)
 
 ## Your systems
 - hiring workers · in the slice
@@ -91,7 +92,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - offline income and save · in the slice
 - golden school · in the slice
 - general's visit · in the slice
-- blizzard · later
+- blizzard · in the slice
 - zone 3 (rice field) · in the slice
 - zone 4 (great hearth) · in the slice
 - rewarded ads and in-app purchases · later
@@ -104,7 +105,6 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - Ads or in-app purchases in this build
 
 ## Out of scope
-- Blizzard event: change it after play
 - Prestige / new maps carrying outfits and multipliers: grow it
 - Rewarded ads, interstitials and purchases: not built yet
 - Long-run balance over 2–3 hours: grow it

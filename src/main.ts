@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -312,7 +312,7 @@ const PUFF_GEO = new THREE.IcosahedronGeometry(0.25, 0), DROP_GEO = new THREE.Te
 function particle(kind: string, pos: Loose, vel: Loose, life: number, color = '#ffffff', size = 1) {
   let p = fx.pool.find((q: Loose) => !q.alive && q.kind === kind);
   if (!p) {
-    const geo = kind === 'puff' ? PUFF_GEO : kind === 'ring' ? RING_GEO : kind === 'gfish' ? ITEM_GEO.fish[1] : DROP_GEO;
+    const geo = kind === 'snow' ? DROP_GEO : kind === 'puff' ? PUFF_GEO : kind === 'ring' ? RING_GEO : kind === 'gfish' ? ITEM_GEO.fish[1] : DROP_GEO;
     const m = kind === 'gfish' ? VMAT : new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false });
     p = { kind, mesh: new THREE.Mesh(geo, m), alive: false }; if (kind === 'ring') p.mesh.rotation.x = -PI / 2;
     fx.pool.push(p); world.add(p.mesh);
@@ -327,6 +327,7 @@ function updateParticles(dt: number) {
     if (k >= 1) { p.alive = false; p.mesh.visible = false; continue; }
     p.mesh.position.addScaledVector(p.vel, dt);
     if (p.kind === 'drop' || p.kind === 'gfish') p.vel.y -= 14 * dt;
+    if (p.kind === 'snow') { p.vel.x = Math.sin(state.t * 2 + p.life * 3) * 1.2 + 2.0; p.mesh.material.opacity = Math.min(1, (1 - k) * 3); }
     if (p.kind === 'puff') { p.mesh.scale.setScalar(p.size * (0.6 + k * 1.4)); p.mesh.material.opacity = 0.9 * (1 - k); }
     if (p.kind === 'ring') { p.mesh.scale.setScalar(p.size * (0.4 + k * 2.2)); p.mesh.material.opacity = 0.8 * (1 - k); }
     if (p.kind === 'drop') p.mesh.material.opacity = 1 - k * k;
@@ -613,6 +614,7 @@ function updateSpots(dt: number) {
     let occ = null;
     if (sp.owner) { const w = sp.owner; if (w.state === 'fish' && inTile(w.pos, sp.tile, 0.3) && w.canTake(sp.item)) occ = w; }
     else if (inTile(player.pos, sp.tile) && player.canTake(sp.item) && !state.welcome) occ = player;
+    if (state.blizzardLeft > 0 && sp.name === 'pond') occ = null; // so is the pond; only the ice hole works
     if (occ) {
       occ.mode = sp.mode; sp.prog += dt / (sp.item === 'fish' ? catchTime(tune[sp.timeKey], occ === player, state.fishSpeed, tune.fish_speed_mult) : tune[sp.timeKey]);
       if (sp.prog >= 1) {
@@ -818,7 +820,7 @@ function unlock(t: Loose, instant: boolean) {
     if (instant) { fx.z2.visible = true; rods[3].g.visible = true; state.gateAnim = 1; } else { pop(fx.z2, 0.7); pop(rods[3].g, 0.7); }
   }
   if (id === 'gate4') {
-    state.gate4Open = true; state.fuel = tune.fuel_start; processors[3].active = true; counters[3].active = true; spots[2].active = true; spots[3].active = true;
+    state.gate4Open = true; if (!instant) state.fuel = tune.fuel_start; state.blizzardNext = state.playTime + tune.blizzard_first; // a loaded camp keeps its saved fire processors[3].active = true; counters[3].active = true; spots[2].active = true; spots[3].active = true;
     fx.z4tiles.forEach((m: Loose) => (m.visible = true));
     if (instant) { fx.z4.visible = true; state.gate4Anim = 1; } else pop(fx.z4, 0.7);
   }
@@ -869,6 +871,7 @@ function updateRods(dt: number) {
     let occ = null;
     if (rod.owner) { const w = rod.owner; if (w.state === 'fish' && inTile(w.pos, rod.tile, 0.3) && w.canTake('fish')) occ = w; }
     else if (inTile(player.pos, rod.tile) && player.canTake('fish') && !state.welcome) occ = player;
+    if (state.blizzardLeft > 0) occ = null; // the river is frozen
     if (occ) {
       occ.mode = 'pull';
       rod.prog += dt / catchTime(tune.fish_time, occ === player, state.fishSpeed, tune.fish_speed_mult);
@@ -963,7 +966,7 @@ function updateCounters(dt: number) {
           const head = c.base[s.i].p.clone(); head.y = 1.3; const slot = s;
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
-            const value = dishValue(tune[c.priceKey], top.gold, tune.golden_mult);
+            const value = blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty);
             state.earned += value; if (c.zone === 1 && belt.on) state.autoWin += value;
             const cash = newItem('cash'); cash.value = value;
             const from = head.clone(); from.x += face * 0.6;
@@ -1011,7 +1014,7 @@ function updateGeneral(dt: number) {
     if (top && g.cd <= 0 && g.eaten < tune.general_bowls) {
       g.cd = 1 / tune.eat_rate; c.pile.take(top); g.eaten++;
       const head = GENERAL_AT.clone(); head.y = 1.9;
-      fly(top, top.mesh.position, () => head, 0.3, 0.6, () => { release(top); puffs(head, 3, '#ffffff', 0.8); payOut(c, head, dishValue(tune[c.priceKey], top.gold, tune.golden_mult), top.gold); });
+      fly(top, top.mesh.position, () => head, 0.3, 0.6, () => { release(top); puffs(head, 3, '#ffffff', 0.8); payOut(c, head, blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty), top.gold); });
     }
     const outcome = visitOutcome(g.eaten, tune.general_bowls, g.t);
     if (outcome === 'won') { // a chest bursts open onto the cash pile
@@ -1183,6 +1186,26 @@ function updateGolden(dt: number) {
   fx.streakMat.color.set(state.goldLeft > 0 ? '#ffe27a' : '#e8f8ff');
   for (const s of fx.streaks) { s.m.position.x += s.v * dt; if (s.m.position.x > 60) s.m.position.x = -40; }
 }
+/** Zone 4's blizzard: every few minutes once the great hearth is open, the water freezes for a while. */
+function updateBlizzard(dt: number) {
+  if (state.blizzardLeft > 0) {
+    state.blizzardLeft -= dt;
+    fx.snowT -= dt;
+    if (fx.snowT <= 0) { fx.snowT = 0.03; particle('snow', new V3(fx.focus.x + rr(-14, 10), 9, fx.focus.z + rr(-12, 12)), new V3(2, -rr(2.5, 4), 0), 3.0, '#ffffff', 1); }
+    fx.windT -= dt; if (fx.windT <= 0) { fx.windT = 0.9; sfx.wind(); }
+    if (state.blizzardLeft <= 0) { state.blizzardLeft = 0; state.blizzardNext = state.playTime + rr(tune.blizzard_min, tune.blizzard_max); events.push({ type: 'blizzard_end' }); }
+  } else if (state.gate4Open && state.playTime >= state.blizzardNext && scene === 'play' && !state.welcome) {
+    state.blizzardLeft = tune.blizzard_duration; fx.snowT = 0; fx.windT = 0; buzz(80); events.push({ type: 'blizzard' });
+    floats.push({ p: player.pos.clone().add(new V3(0, 3, 0)), txt: 'A blizzard! The river freezes', t: -0.8, col: '#e8f8ff' });
+  }
+  // look: the water ices over, the fog closes in
+  const b = state.blizzardLeft > 0 ? 1 : 0;
+  fx.ice += (b - fx.ice) * Math.min(1, dt * 2);
+  mat('#3d9be0').color.set('#3d9be0').lerp(new THREE.Color('#d6ecf5'), fx.ice);
+  for (const s of fx.streaks) s.m.visible = fx.ice < 0.5;
+  const fog = scene3.fog as THREE.Fog; fog.near = 38 - fx.ice * 24; fog.far = 80 - fx.ice * 34;
+  fog.color.set('#cdeaf3').lerp(new THREE.Color('#eef4f8'), fx.ice); (scene3.background as THREE.Color).copy(fog.color);
+}
 function updateCamera(dt: number) {
   let target = player.pos, k = tune.cam_lag;
   if (state.glide) { state.glide.t += dt; if (state.glide.t < tune.glide_time * 0.72) { target = state.glide.p; k = 5; } else { k = 7; if (state.glide.t > tune.glide_time) state.glide = null; } }
@@ -1259,7 +1282,7 @@ function load() {
   let s = null; try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (_) {}
   if (!s) return;
   state.wallet = s.wallet | 0; state.playTime = s.playTime || 0; state.goalDone = !!s.goalDone; state.earned = s.earned || 0; state.autoRate = s.rate || 0;
-  state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done; state.goal4Done = !!s.goal4Done;
+  state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done; state.goal4Done = !!s.goal4Done; state.fuel = typeof s.fuel === 'number' ? s.fuel : tune.fuel_start;
   state.generalNext = Math.max(tune.general_first, state.playTime + tune.general_min);
   for (const id of UNLOCKS.map((u: Loose) => u.id)) if ((s.done || []).includes(id)) unlock(tiles.find((t: Loose) => t.def.id === id), true);
   for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
@@ -1278,12 +1301,12 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0 };
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9 }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
   const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-8, 20, 10); scene3.add(sun);
-  fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0 };
+  fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0, ice: 0, snowT: 0, windT: 0 };
   buildEnvironment(); buildRods(); buildKitchen(); buildRiceField(); buildHearth(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
   fx.general = makeChar('general'); fx.general.group.scale.setScalar(1.35); fx.general.group.visible = false; world.add(fx.general.group); blob(fx.general.group, 0.6);
   fx.generalTex = canvasTex(160, 128, () => {}); fx.generalShown = -1;
@@ -1307,7 +1330,7 @@ function reset() {
 }
 function tick3D(dt: number) { // the camp keeps running under every overlay
   state.t += dt;
-  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt); updateHearth(dt);
+  updatePlayer(dt); updateWorkers(dt); updateRods(dt); updateSpots(dt); updateHearth(dt); updateBlizzard(dt);
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
@@ -1380,9 +1403,16 @@ function drawHud() {
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
     text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, gy + 28, 28, '#ffe27a');
   }
+  // blizzard banner (under the golden one when both show)
+  if (state.blizzardLeft > 0) {
+    const w = Math.min(560, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0), out = state.fuel <= 0;
+    ctx.fillStyle = out ? 'rgba(120,24,24,0.85)' : 'rgba(30,60,90,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
+    ctx.strokeStyle = '#e8f8ff'; ctx.lineWidth = 3; ctx.stroke();
+    text(out ? `BLIZZARD   fire out: customers pay half   ${Math.ceil(state.blizzardLeft)}s` : `BLIZZARD   keep the fire lit   ${Math.ceil(state.blizzardLeft)}s`, W / 2, gy + 28, 26, '#ffffff');
+  }
   // general's visit banner
   if (state.general && state.general.phase === 'eat') {
-    const g = state.general, w = Math.min(520, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0);
+    const g = state.general, w = Math.min(520, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0) + (state.blizzardLeft > 0 ? 64 : 0);
     ctx.fillStyle = 'rgba(110,20,20,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
     text(`GENERAL'S VISIT   ${g.eaten}/${tune.general_bowls}   ${Math.ceil(g.t)}s`, W / 2, gy + 28, 28, '#ffe9c4');

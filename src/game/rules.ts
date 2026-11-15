@@ -47,6 +47,15 @@ export function visitOutcome(eaten: number, need: number, timeLeft: number): 'wo
 }
 
 /**
+ * What a dish pays in a blizzard: full price while the hearth burns or when there is no blizzard;
+ * otherwise the penalty share, rounded, and never less than 1 coin.
+ */
+export function blizzardPay(value: number, blizzard: boolean, fireLit: boolean, penalty: number): number {
+  if (!blizzard || fireLit) return value;
+  return Math.max(1, Math.round(value * penalty));
+}
+
+/**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.
  */

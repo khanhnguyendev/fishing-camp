@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { burnFuel, carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { blizzardPay, burnFuel, carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -120,6 +120,20 @@ describe('the hearth fire', () => {
     expect(wantsLog(max - burn, max, burn)).toBe(true);
     expect(wantsLog(max - burn + 1, max, burn)).toBe(false);
     expect(v('fuel_start')).toBeLessThanOrEqual(max);
+  });
+});
+
+describe('blizzardPay', () => {
+  it('cuts what customers pay only in a blizzard with the hearth fire out', () => {
+    const p = v('blizzard_penalty'), price = v('hotpot_price');
+    expect(blizzardPay(price, false, false, p)).toBe(price);
+    expect(blizzardPay(price, true, true, p)).toBe(price);
+    expect(blizzardPay(price, true, false, p)).toBe(Math.round(price * p));
+    expect(blizzardPay(1, true, false, 0.1)).toBe(1); // never less than a coin
+  });
+
+  it('a blizzard ends well before the next can start', () => {
+    expect(v('blizzard_duration')).toBeLessThan(v('blizzard_min'));
   });
 });
 

@@ -51,6 +51,7 @@ export const sfx = {
   cheer() { noise(0.45, 0.12, 1600, 0.6); tone(660, 0.12, 'triangle', 0.06, 1.3); },
   puff() { noise(0.12, 0.06, 700, 1); },
   chop() { noise(0.05, 0.08, 2600, 2); },
+  wind() { noise(1.2, 0.07, 420, 0.4); noise(0.9, 0.04, 1200, 0.7); },
   horn() { [0, 0, 7, 12].forEach((s, i) => setTimeout(() => tone(220 * semis(s), 0.32, 'sawtooth', 0.09), i * 160)); },
   golden() { [0, 4, 7, 12].forEach((s, i) => setTimeout(() => tone(660 * semis(s), 0.25, 'triangle', 0.14), i * 90)); },
 };
