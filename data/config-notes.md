@@ -23,6 +23,8 @@ holds no comments. The values themselves are in `data/config.json`.
 - `carry_fish_add`: "Bigger back" upgrade: extra fish
 - `carry_dish_add`: "Bigger back" upgrade: extra bowls/plates
 - `speed_mult`: "Swift feet" upgrade: run speed multiplier
+- `fish_speed_mult`: "Quick hands" upgrade: the player catches fish this many times faster (rods and pond; workers unchanged)
+- `price_fishspeed`: coins for "Quick hands" (GDD 4: fishing speed is the third player stat)
 - `worker_speed`: fisher metres per second
 - `worker_cap`: fish a fisher carries per trip
 - `pickup_interval`: seconds between items hopping on/off the back

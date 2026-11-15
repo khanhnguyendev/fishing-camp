@@ -5,6 +5,7 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'fisher1', kind: 'hire', label: 'FISHER', price: 'price_fisher1', x: -1.97, z: -9.13, size: 1.2, req: [], focus: [-3.1, -8] },
   { id: 'fisher2', kind: 'hire', label: 'FISHER', price: 'price_fisher2', x: 1.63, z: -9.13, size: 1.2, req: ['fisher1'], focus: [0.5, -8] },
   { id: 'carry', kind: 'upgrade', label: 'BIGGER BACK', price: 'price_carry', x: 5.6, z: 4.6, req: ['fisher1'] },
+  { id: 'fishspeed', kind: 'upgrade', label: 'QUICK HANDS', price: 'price_fishspeed', x: 0.9, z: 7.0, req: ['fisher1'] },
   { id: 'fisher3', kind: 'hire', label: 'FISHER', price: 'price_fisher3', x: 5.23, z: -9.13, size: 1.2, req: ['fisher2'], focus: [4.1, -8] },
   { id: 'conveyor', kind: 'upgrade', label: 'CONVEYOR', price: 'price_conveyor', x: -0.6, z: 4.6, req: ['fisher3'], focus: [-0.6, 2.6] },
   { id: 'speed', kind: 'upgrade', label: 'SWIFT FEET', price: 'price_speed', x: 3.4, z: 6.6, req: ['fisher3'] },

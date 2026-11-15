@@ -28,6 +28,11 @@ export function carryCap(
   return type === 'fish' ? t.fish_cap + carryLevel * t.carry_fish_add : t.dish_cap + carryLevel * t.carry_dish_add;
 }
 
+/** Seconds for one catch: the player with "Quick hands" fishes mult times faster; workers never do. */
+export function catchTime(base: number, isPlayer: boolean, quickHands: boolean, mult: number): number {
+  return isPlayer && quickHands ? base / mult : base;
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

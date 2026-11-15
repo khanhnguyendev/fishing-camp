@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -554,7 +554,7 @@ function updateSpots(dt: number) {
     if (sp.owner) { const w = sp.owner; if (w.state === 'fish' && inTile(w.pos, sp.tile, 0.3) && w.canTake(sp.item)) occ = w; }
     else if (inTile(player.pos, sp.tile) && player.canTake(sp.item) && !state.welcome) occ = player;
     if (occ) {
-      occ.mode = sp.mode; sp.prog += dt / tune[sp.timeKey];
+      occ.mode = sp.mode; sp.prog += dt / (sp.item === 'fish' ? catchTime(tune[sp.timeKey], occ === player, state.fishSpeed, tune.fish_speed_mult) : tune[sp.timeKey]);
       if (sp.prog >= 1) {
         sp.prog = 0;
         const gold = sp.item === 'fish' && state.goldLeft > 0, it = newItem(sp.item, gold);
@@ -678,6 +678,7 @@ function unlock(t: Loose, instant: boolean) {
   }
   if (id === 'carry') state.carry = 1;
   if (id === 'speed') state.speedUp = true;
+  if (id === 'fishspeed') state.fishSpeed = true;
   if (id === 'pot2') { state.pot2 = true; instant ? (fx.pot2.visible = true) : pop(fx.pot2); }
   if (id === 'conveyor') { belt.on = true; instant ? (belt.g.visible = true) : pop(belt.g); }
   if (id === 'gate') {
@@ -734,7 +735,7 @@ function updateRods(dt: number) {
     else if (inTile(player.pos, rod.tile) && player.canTake('fish') && !state.welcome) occ = player;
     if (occ) {
       occ.mode = 'pull';
-      rod.prog += dt / tune.fish_time;
+      rod.prog += dt / catchTime(tune.fish_time, occ === player, state.fishSpeed, tune.fish_speed_mult);
       rod.ripT -= dt; if (rod.ripT <= 0 && rod.prog > 0.25) { rod.ripT = 0.35; particle('ring', new V3(rod.x, -0.4, -12.6), new V3(), 0.8, state.goldLeft > 0 ? '#ffe27a' : '#ffffff', 0.8); }
       if (occ === player && rod.prog > 0.35) { rod.sndT -= dt; if (rod.sndT <= 0) { rod.sndT = 0.14; sfx.tension(rod.prog); } }
       if (rod.prog >= 1) { rod.prog = 0; catchFish(rod, occ); }
@@ -1044,7 +1045,7 @@ function reset() {
   setSeed(seedFrom(SEED));
   while (scene3.children.length) scene3.remove(scene3.children[0]);
   tweens = []; pops = []; floats = []; for (const k in pools) pools[k].length = 0;
-  state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, pot2: false, gateOpen: false, gateAnim: 0,
+  state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, fishSpeed: false, pot2: false, gateOpen: false, gateAnim: 0,
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '' };

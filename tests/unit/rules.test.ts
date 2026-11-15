@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { carryCap, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { carryCap, catchTime, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -72,6 +72,15 @@ describe('carryCap', () => {
     expect(carryCap('fish', true, 0, carryTuning)).toBe(v('fish_cap'));
     expect(carryCap('bowl', true, 1, carryTuning)).toBe(v('dish_cap') + v('carry_dish_add'));
     expect(carryCap('fish', false, 1, carryTuning)).toBe(v('worker_cap'));
+  });
+});
+
+describe('catchTime', () => {
+  it('Quick hands speeds up the player only, by its multiplier', () => {
+    const base = v('fish_time'), mult = v('fish_speed_mult');
+    expect(catchTime(base, true, false, mult)).toBe(base);
+    expect(catchTime(base, true, true, mult)).toBeCloseTo(base / mult, 9);
+    expect(catchTime(base, false, true, mult)).toBe(base); // a hired fisher keeps his own pace
   });
 });
 
