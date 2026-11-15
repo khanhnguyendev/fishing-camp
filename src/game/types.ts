@@ -31,7 +31,7 @@ export interface GroundPoint {
 }
 
 /** What the player can carry or a pile can hold. */
-export type ItemType = 'fish' | 'bowl' | 'plate' | 'cash';
+export type ItemType = 'fish' | 'bowl' | 'plate' | 'cash' | 'rice' | 'riceball';
 
 /** The kinds of price tile, told apart by their icon. */
 export type UnlockKind = 'hire' | 'upgrade' | 'zone';
@@ -66,4 +66,6 @@ export interface SaveData {
   goalDone: boolean;
   earned: number;
   goldNext: number;
+  /** The first rice ball has been sold (zone 3's milestone). */
+  goal3Done?: boolean;
 }

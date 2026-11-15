@@ -74,9 +74,10 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Golden school: every 3–5 min, gold fish for 20 s selling at 5×
 - [x] Save after every unlock (localStorage) + offline income capped at 2 h with a welcome-back popup
 - [ ] Feedback from the GDD's table: splash, rising-pitch clacks, puffs, bell, pop-up bounce (synth sound)
-- [x] Every number in `config.js`
+- [x] Every number in a data file (`data/config.json`)
 - [x] Second pot cooks in parallel: the chef cuts, each pot cooks its own fish and throws its own bowls; a pot-boy stirs the second pot
 - [x] Phone play: fills any screen portrait-first, touch-first title, adaptive HUD, add-to-home-screen fullscreen
+- [x] Zone 3, the rice field: paddy and pond, a rice cook making rice balls from rice + fish, cavalry customers, farmer and pond-fisher hires
 
 ## Your systems
 - hiring workers · in the slice
@@ -86,7 +87,8 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - golden school · in the slice
 - general's visit · later
 - blizzard · later
-- zones 3–4 · later
+- zone 3 (rice field) · in the slice
+- zone 4 (great hearth) · later
 - rewarded ads and in-app purchases · later
 
 ## Keep
@@ -97,7 +99,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - Ads or in-app purchases in this build
 
 ## Out of scope
-- Zones 3–4 (rice field, great hearth): grow it
+- Zone 4 (great hearth): grow it
 - General's visit and blizzard events: change it after play
 - Prestige / new maps carrying outfits and multipliers: grow it
 - Rewarded ads, interstitials and purchases: not built yet

@@ -56,8 +56,15 @@ export const Z1N: Rect = { x0: -5.6, x1: 6.6, z0: -8.8, z1: 0.1 };
 export const Z1S: Rect = { x0: -5.6, x1: 6.6, z0: 4.9, z1: 7.6 };
 export const Z2: Rect = { x0: 7.4, x1: 20.3, z0: -8.8, z1: 7.6 };
 export const GATE: Rect = { x0: 6.0, x1: 8.0, z0: -1.6, z1: 1.6 };
+/** Zone 3, the rice field, south of the grill yard, and the passage through its gate. */
+export const Z3: Rect = { x0: 7.9, x1: 20.9, z0: 9.0, z1: 19.8 };
+export const GATE3: Rect = { x0: 12.6, x1: 15.4, z0: 7.0, z1: 9.6 };
 
-/** True when the player may stand at (x, z). */
-export function walkableAt(x: number, z: number, gateOpen: boolean): boolean {
-  return inRect(Z1, x, z) || inRect(Z1N, x, z) || inRect(Z1S, x, z) || (gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z)));
+/** True when the player may stand at (x, z), given which gates are open. */
+export function walkableAt(x: number, z: number, gateOpen: boolean, gate3Open = false): boolean {
+  return inRect(Z1, x, z) || inRect(Z1N, x, z) || inRect(Z1S, x, z) || (gateOpen && (inRect(Z2, x, z) || inRect(GATE, x, z)))
+    || (gate3Open && (inRect(Z3, x, z) || inRect(GATE3, x, z)));
 }
+
+/** True when (x, z) is inside the rice field. */
+export const inZone3 = (x: number, z: number): boolean => inRect(Z3, x, z);

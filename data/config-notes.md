@@ -64,3 +64,14 @@ holds no comments. The values themselves are in `data/config.json`.
 - `portrait_pull`: most the camera pulls back on a tall (portrait) screen
 - `cam_lag`: follow stiffness (higher = less lag)
 - `glide_time`: seconds the camera visits a new unlock
+
+## Zone 3: rice field (GDD 6; prices are proposals: a new zone ~4x the last gate, dish 3x sushi)
+- `price_gate3`: coins to open the rice field gate
+- `price_farmer`: coins to hire the farmer (paddy -> rice-ball station)
+- `price_pondfisher`: coins to hire the pond fisher (pond -> rice-ball station)
+- `rice_time`: seconds to harvest 1 rice sack at the paddy
+- `pond_time`: seconds to net 1 fish at the pond
+- `riceball_time`: seconds for the rice cook to turn 1 rice + 1 fish into rice balls (includes cut_time)
+- `riceballs_per_pair`: rice balls from 1 rice sack + 1 fish
+- `riceball_price`: coins per rice ball (3x sushi)
+- `riceball_limit`: rice balls waiting on the rice-ball table

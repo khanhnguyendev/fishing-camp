@@ -1,0 +1,150 @@
+browser	/c/Program Files/Google/Chrome/Application/chrome.exe
+time	2026-11-15 09:44:14
+render	cheap
+webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+ua	HeadlessChrome/157.0.0.0
+scene	0	title
+state	0	title	{"t":0,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],"carry":0,"speedUp":false,"pot2":false,"gateOpen":false,"gateAnim":0,"goalDone":false,"goalTimer":-1,"glide":null,"playTime":0,"goldLe
+scene	1	play
+state	1	play	{"t":0.02,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],"carry":0,"speedUp":false,"pot2":false,"gateOpen":false,"gateAnim":0,"goalDone":false,"goalTimer":-1,"glide":null,"playTime":0,"gol
+playinput	4	ArrowUp
+frame	3481	81646ca4
+frame	3482	f0f65bdb
+frame	3483	22ec1770
+frame	3484	f6e87189
+frame	3485	80509adf
+frame	3486	ff95d423
+frame	3487	95aa2343
+frame	3488	e23c9b03
+frame	3489	a938e430
+frame	3490	9cda57a7
+frame	3491	b92b4b47
+frame	3492	4ed63575
+frame	3493	6b893c83
+frame	3494	6f0b08de
+frame	3495	1ef51f9c
+frame	3496	e3e46f13
+frame	3497	e823fb6
+frame	3498	9fd96974
+frame	3499	6d393e47
+frame	3500	7fe4126b
+frame	3501	35107367
+frame	3502	71918d0e
+frame	3503	3bc01a23
+frame	3504	3ff0ca94
+frame	3505	cf4f9eaf
+frame	3506	856c1ce0
+frame	3507	b6754e6b
+frame	3508	3426630a
+frame	3509	93edaccb
+frame	3510	3e247266
+frame	3511	73a3cc29
+frame	3512	9c514072
+frame	3513	ace88522
+frame	3514	e2591c52
+frame	3515	13042a53
+frame	3516	93acf4bf
+frame	3517	e7c79aea
+frame	3518	351f74d5
+frame	3519	fb314a2a
+frame	3520	d6290439
+frame	3521	35a81ca
+frame	3522	1961c58c
+frame	3523	aec431e3
+frame	3524	d934644d
+frame	3525	16e67cbc
+frame	3526	6ffae6d2
+frame	3527	b987691d
+frame	3528	25cadc76
+frame	3529	50a996ca
+frame	3530	23b30970
+frame	3531	5e2e805a
+frame	3532	89b0eb45
+frame	3533	bba7b6df
+frame	3534	b5dbef97
+frame	3535	10c87e51
+frame	3536	a76fee2c
+frame	3537	1d5e2bdd
+frame	3538	3ac0febf
+frame	3539	329e0e9c
+frame	3540	ddfa0467
+frame	3541	f302cdf3
+frame	3542	76aa2cb9
+frame	3543	363af436
+frame	3544	c757df88
+frame	3545	b03f73f5
+frame	3546	3a6395bc
+frame	3547	9fa00b6f
+frame	3548	9667574f
+frame	3549	3cbe3ae2
+frame	3550	3be0ca62
+frame	3551	4ec0dd7c
+frame	3552	6e0663d8
+frame	3553	ba980299
+frame	3554	7493a45
+frame	3555	29e5711d
+frame	3556	98c53565
+frame	3557	df9298ab
+frame	3558	315d888a
+frame	3559	989d7ece
+frame	3560	bd36c626
+frame	3561	43672e85
+frame	3562	1cce1f0c
+frame	3563	86c8c146
+frame	3564	87a68c45
+frame	3565	e7aec821
+frame	3566	73405ade
+frame	3567	31368a93
+frame	3568	564101d3
+frame	3569	c71a7771
+frame	3570	2029f0
+frame	3571	84353254
+frame	3572	c6600202
+frame	3573	d1234fbc
+frame	3574	1a096ef3
+frame	3575	549ecedf
+frame	3576	2592260
+frame	3577	246a1ef4
+frame	3578	d10d082b
+frame	3579	d0c7266b
+frame	3580	6c4d75ff
+frame	3581	c1dd0181
+frame	3582	3e8f5d90
+frame	3583	682d96e4
+frame	3584	7b3e768f
+frame	3585	f631868
+frame	3586	b90dabd
+frame	3587	bc2f9506
+frame	3588	d6dd99c7
+frame	3589	aa9b40f7
+frame	3590	77a4be59
+frame	3591	ffcd633c
+frame	3592	6bdb6607
+frame	3593	9934f8ca
+frame	3594	8790b5a7
+frame	3595	53611c73
+frame	3596	2fcdb72d
+frame	3597	e5d2ed8c
+frame	3598	14050e6a
+frame	3599	5e8aeb1d
+frame	3600	452f7891
+state	3600	play	{"t":60,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],"carry":0,"speedUp":false,"pot2":false,"gateOpen":false,"gateAnim":0,"goalDone":false,"goalTimer":-1,"glide":null,"playTime":59.98,"g
+digits	log	bold 30px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+digits	log	bold 52px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+digits	log	bold 34px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
+loop	log	none	no loop() step was marked
+first	log	none	no state.beat
+pressure	none	the game set no number state.margin in play
+steptime	3600	0.073	2.500
+frametime	60	23.8	55.5	60	60	1
+done	3600	play	stop	60.0	5934
+console	0	[.WebGL-0x47c400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x47c400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x47c400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x47c400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+measured	1280x720
+text	play	canvas	80,32,99,56	46.5	16.14	inside	0
+screen	3600	play	c65edf99	drawn
+saved	3600	localstorage	fishing-camp-save-v1
+uncaught	0
+shot	/c/Users/khanh/ws/0.GAME/fishing-camp/production/qa/evidence/grow-fishing-camp/story.png	511932

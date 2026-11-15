@@ -1,9 +1,9 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { carryCap, dishValue, fmt, inTile, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { carryCap, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
-import { ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
+import { RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
 const v = (k: keyof typeof config): number => (config[k] as { value: number }).value;
 const carryTuning = {
@@ -23,6 +23,19 @@ describe('the core loop pays', () => {
   it('one fish of soup earns its bowls times the bowl price', () => {
     const perFish = v('bowls_per_fish') * dishValue(v('bowl_price'), false, v('golden_mult'));
     expect(perFish).toBe(v('bowls_per_fish') * v('bowl_price'));
+  });
+
+  it('a rice-ball pair (one rice, one fish) earns more per fish than sushi, which earns more than soup', () => {
+    const soup = v('bowls_per_fish') * v('bowl_price'), sushi = v('plates_per_fish') * v('plate_price');
+    const riceballs = v('riceballs_per_pair') * dishValue(v('riceball_price'), false, v('golden_mult'));
+    expect(sushi).toBeGreaterThan(soup);
+    expect(riceballs).toBeGreaterThan(sushi);
+  });
+
+  it('the rice field gate costs about 4x the grill yard gate, as a new zone should', () => {
+    const ratio = v('price_gate3') / v('price_gate');
+    expect(ratio).toBeGreaterThanOrEqual(3);
+    expect(ratio).toBeLessThanOrEqual(6);
   });
 
   it('a gold dish sells for the golden multiplier', () => {
@@ -97,6 +110,23 @@ describe('ground', () => {
       const apart = Math.abs(dx - dz) * Math.SQRT1_2 >= reach || Math.abs(dx + dz) * Math.SQRT1_2 >= reach;
       expect(apart, `${u.id} overlaps the rod at x=${x}`).toBe(true);
     }
+  });
+
+  it('no price tile overlaps a rice field standing tile', () => {
+    for (const u of UNLOCKS) for (const t of Object.values(RICE)) {
+      const dx = u.x - t.x, dz = u.z - t.z, reach = ((u.size ?? 1.7) + STAND_SIZE) / 2;
+      const apart = Math.abs(dx - dz) * Math.SQRT1_2 >= reach || Math.abs(dx + dz) * Math.SQRT1_2 >= reach;
+      expect(apart, `${u.id} overlaps the rice field tile at ${t.x},${t.z}`).toBe(true);
+    }
+  });
+
+  it('the rice field opens only with its own gate, through the grill yard', () => {
+    expect(walkableAt(14, 14, true, false)).toBe(false);
+    expect(walkableAt(14, 14, true, true)).toBe(true);
+    expect(walkableAt(14, 8.3, true, true)).toBe(true); // the gate passage
+    expect(walkableAt(10, 8.3, true, true)).toBe(false); // the fence beside it
+    expect(inZone3(14, 14)).toBe(true);
+    expect(inZone3(14, 0)).toBe(false);
   });
 
   it('the grill yard is walkable only once the gate is open', () => {
