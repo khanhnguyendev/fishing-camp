@@ -12,8 +12,10 @@ export const UNLOCKS: UnlockDef[] = [
   { id: 'gate', kind: 'zone', label: 'GRILL YARD', price: 'price_gate', x: 5.6, z: 0.4, req: ['conveyor'], focus: [14.2, -1.5] },
   { id: 'pot2', kind: 'upgrade', label: 'SECOND POT', price: 'price_pot2', x: 5.8, z: -4.4, req: ['conveyor'], focus: [4.3, -2] },
   { id: 'grillfisher', kind: 'hire', label: 'FISHER', price: 'price_grillfisher', x: 12.33, z: -9.13, size: 1.2, req: ['gate'], focus: [11.2, -8] },
+  { id: 'carrier2', kind: 'hire', label: 'CARRIER', price: 'price_carrier2', x: 18.0, z: 4.8, size: 1.2, req: ['gate'], focus: [18, 1.6] },
   { id: 'gate3', kind: 'zone', label: 'RICE FIELD', price: 'price_gate3', x: 14, z: 6.0, req: ['gate'], focus: [14, 14] },
   { id: 'farmer', kind: 'hire', label: 'FARMER', price: 'price_farmer', x: 20.4, z: 15.2, size: 1.2, req: ['gate3'], focus: [19.2, 12] },
+  { id: 'carrier3', kind: 'hire', label: 'CARRIER', price: 'price_carrier3', x: 10.4, z: 15.6, size: 1.2, req: ['gate3'], focus: [10.5, 15] },
   { id: 'pondfisher', kind: 'hire', label: 'FISHER', price: 'price_pondfisher', x: 16.4, z: 16.4, size: 1.2, req: ['gate3'], focus: [18.4, 18] },
 ];
 

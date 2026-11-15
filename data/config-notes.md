@@ -77,3 +77,8 @@ holds no comments. The values themselves are in `data/config.json`.
 - `riceballs_per_pair`: rice balls from 1 rice sack + 1 fish
 - `riceball_price`: coins per rice ball (3x sushi)
 - `riceball_limit`: rice balls waiting on the rice-ball table
+
+## Carriers (GDD 4: "hiring replaces the player at each step: fishers first, then carriers")
+- `carrier_cap`: dishes a carrier takes per trip, table to counter (carriers never touch cash)
+- `price_carrier2`: coins to hire the grill yard's carrier (sushi table -> gold soldiers' counter)
+- `price_carrier3`: coins to hire the rice field's carrier (rice-ball table -> cavalry counter)

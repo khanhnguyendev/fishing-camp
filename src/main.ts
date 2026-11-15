@@ -104,6 +104,7 @@ const ROLES = {
   potboy:    { tunic: '#e0a33a', pants: '#5a4636', hair: '#2b1d16', belt: '#7a4a26' },
   ricecook:  { tunic: '#f6f0dc', pants: '#5b6b4a', hair: '#2b1d16', belt: '#c8402e' },
   farmer:    { tunic: '#3f5aa8', pants: '#5a4636', hair: '#2b1d16', belt: '#c99a52' },
+  carrier:   { tunic: '#c9773a', pants: '#4a3b2c', hair: '#2b1d16', belt: '#f2c94c' },
 };
 const TORSO = new THREE.CylinderGeometry(0.25, 0.33, 0.52, 8);
 const HEAD = new THREE.SphereGeometry(0.4, 10, 8);
@@ -145,6 +146,10 @@ function makeChar(role: string) {
     add(head, G.cyl, '#f6f0dc', 0, 0.36, -0.02, -0.12, 0, 0, 1.05, 0.09, 1.05); add(head, G.sph, '#c8402e', 0, 0.44, -0.02, 0, 0, 0, 0.18);
     add(body, G.box, '#c8402e', 0, 0.55, 0.27, -0.12, 0, 0, 0.44, 0.44, 0.04);
     add(armR, G.box, '#d9b77a', 0, -0.62, 0, 0, 0, 0, 0.05, 0.5, 0.05); add(armR, G.box, '#d9b77a', 0, -0.92, 0, 0, 0, 0, 0.16, 0.2, 0.04);
+  } else if (role === 'carrier') { // a shoulder yoke with a basket at each end, and a tied headband
+    add(body, G.box, '#8a5a2b', 0, 1.02, -0.05, 0, 0, 0, 1.7, 0.07, 0.07);
+    for (const x of [-0.82, 0.82]) { add(body, G.box, '#d9c08a', x, 0.78, -0.05, 0, 0, 0, 0.02, 0.45, 0.02); add(body, new THREE.CylinderGeometry(0.2, 0.15, 0.24, 8), '#c99a52', x, 0.5, -0.05); }
+    add(head, new THREE.TorusGeometry(0.41, 0.05, 5, 16), '#f6f0dc', 0, 0.08, 0, PI / 2 - 0.1, 0, 0);
   } else if (role === 'farmer') { // a domed straw hat with a wide brim, and a hoe across the back
     add(head, G.cyl, '#d8b45a', 0, 0.26, 0, -0.1, 0, 0, 1.25, 0.05, 1.25); add(head, G.hemi, '#c9a248', 0, 0.27, 0, -0.1, 0, 0, 0.62, 0.5, 0.62);
     add(body, G.cyl6, '#8a5a2b', 0, 0.9, -0.36, 0, 0, 0.8, 0.06, 1.7, 0.06); add(body, G.box, '#b9bcc4', -0.62, 1.5, -0.36, 0, 0, 0.8, 0.3, 0.1, 0.04);
@@ -622,7 +627,8 @@ function buildWorkersAndPlayer() {
 function makeCarrier(role: string, x: number, z: number, isPlayer: boolean) {
   const ch = makeChar(role); world.add(ch.group); const sh = blob(world, 0.55);
   const c: Loose = { ch, sh, pos: new V3(x, 0, z), vel: new V3(), facing: 0, stack: [], lean: new V3(), leanV: new V3(), cd: 0, isPlayer, mode: null };
-  c.cap = (type: Loose) => carryCap(type, isPlayer, state.carry, tune as Loose);
+  c.who = isPlayer ? 'player' : 'worker';
+  c.cap = (type: Loose) => carryCap(type, c.who, state.carry, tune as Loose);
   c.canTake = (type: Loose) => (c.stack.length === 0 || c.stack[0].type === type) && c.stack.length < c.cap(type);
   c.top = () => { const it = c.stack[c.stack.length - 1]; return it && !it.flying ? it : null; };
   c.slot = (i: Loose) => {
@@ -674,6 +680,16 @@ function unlock(t: Loose, instant: boolean) {
     const [spot, proc, item, role] = hires[id];
     const w = makeCarrier(role, t.def.x, t.def.z, false);
     w.rod = spot; w.proc = proc; w.item = item; w.state = 'toRod'; spot.owner = w; workers.push(w);
+    if (!instant) pop(w.ch.group);
+  }
+  const carriers: Record<string, Loose> = {
+    carrier2: [piles.sushi, new V3(16.6, 0, 0.75), counters[1]],
+    carrier3: [piles.riceballs, new V3(RICE.pickup.x, 0, RICE.pickup.z), counters[2]],
+  };
+  if (carriers[id]) {
+    const [pile, at, counter] = carriers[id];
+    const w = makeCarrier('carrier', t.def.x, t.def.z, false);
+    w.who = 'carrier'; w.pick = { pile, at }; w.counter = counter; w.state = 'toPick'; w.wait = 0; workers.push(w);
     if (!instant) pop(w.ch.group);
   }
   if (id === 'carry') state.carry = 1;
@@ -882,9 +898,29 @@ function moveTo(c: Loose, target: Loose, dt: number, speed: number) {
   if (d < 0.06) { c.vel.set(0, 0, 0); return true; }
   const s = Math.min(speed, d / dt); c.vel.set(dx / d * s, 0, dz / d * s); c.pos.addScaledVector(c.vel, dt); return false;
 }
+/** A carrier's round: wait at a table for dishes, take a load, walk it to the counter, unload, go back. */
+function updateCarrierWorker(w: Loose, dt: number) {
+  const pile = w.pick.pile, cnt = w.counter;
+  if (w.state === 'toPick') { if (moveTo(w, w.pick.at, dt, tune.worker_speed)) { w.state = 'pick'; w.wait = 0; } }
+  else if (w.state === 'pick') {
+    w.vel.set(0, 0, 0);
+    const top = pile.top();
+    if (top && w.canTake(pile.type)) { if (w.cd <= 0) { w.cd = tune.pickup_interval * 1.5; takeFrom(w, pile); w.wait = 0; } }
+    else w.wait += dt;
+    // leave with a full load, or with what there is once the table has stayed empty a moment
+    if (w.stack.length && !w.stack.some((i: Loose) => i.flying) && (!w.canTake(pile.type) || w.wait > 0.6)) w.state = 'toDrop';
+  } else if (w.state === 'toDrop') { if (moveTo(w, cnt.drop, dt, tune.worker_speed)) w.state = 'drop'; }
+  else if (w.state === 'drop') {
+    w.vel.set(0, 0, 0);
+    const top = w.top();
+    if (top && w.cd <= 0 && cnt.pile.items.length < cnt.pile.limit()) { w.cd = tune.pickup_interval * 1.5; giveTo(w, cnt.pile, top); }
+    if (!w.stack.length) w.state = 'toPick';
+  }
+}
 function updateWorkers(dt: number) {
   for (const w of workers) {
     w.mode = null; w.cd -= dt;
+    if (w.who === 'carrier') { updateCarrierWorker(w, dt); continue; }
     if (w.state === 'toRod') { if (moveTo(w, w.rod.tile, dt, tune.worker_speed)) w.state = 'fish'; }
     else if (w.state === 'fish') { w.vel.set(0, 0, 0); if (!w.canTake(w.item) && !w.stack.some((i: Loose) => i.flying)) w.state = 'toDrop'; }
     else if (w.state === 'toDrop') { if (moveTo(w, w.proc.drop, dt, tune.worker_speed)) w.state = 'drop'; }
@@ -1111,8 +1147,8 @@ function buildFigures() {
   const g = new THREE.Group(); s.add(g);
   add(g, G.box, '#e8964a', 0, -0.15, 0.6, 0, 0, 0, 20, 0.3, 4.5);
   const list: Loose[] = [];
-  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer']];
-  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-9.2 + i * 1.7, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
+  const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier']];
+  chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-9.6 + i * 1.55, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
   ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(2.8 + i * 1.9, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
   { const m = new THREE.Mesh(CAVALRY_GEO, VMAT); m.position.set(7.4, 0, 0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Cavalry', m.position.clone().add(new V3(0, 4.0, -0.6))]); }
   [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Rice sack', 'rice', 0], ['Rice balls', 'riceball', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {

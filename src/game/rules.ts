@@ -19,12 +19,19 @@ export function payChunk(wallet: number, remaining: number, price: number, chunk
   return Math.min(wallet, remaining, Math.max(1, Math.ceil(price / chunks)));
 }
 
-/** How many items of a type a carrier holds: workers carry a fixed amount; the player grows with "Bigger back". */
+/** Who is carrying: you, a hired fisher or farmer, or a hired carrier (table to counter). */
+export type Bearer = 'player' | 'worker' | 'carrier';
+
+/**
+ * How many items of a type someone holds: a fisher or farmer brings a fixed few, a carrier a fixed
+ * load of dishes, and the player grows with "Bigger back".
+ */
 export function carryCap(
-  type: ItemType, isPlayer: boolean, carryLevel: number,
-  t: { fish_cap: number; dish_cap: number; carry_fish_add: number; carry_dish_add: number; worker_cap: number },
+  type: ItemType, who: Bearer, carryLevel: number,
+  t: { fish_cap: number; dish_cap: number; carry_fish_add: number; carry_dish_add: number; worker_cap: number; carrier_cap: number },
 ): number {
-  if (!isPlayer) return t.worker_cap;
+  if (who === 'worker') return t.worker_cap;
+  if (who === 'carrier') return t.carrier_cap;
   return type === 'fish' ? t.fish_cap + carryLevel * t.carry_fish_add : t.dish_cap + carryLevel * t.carry_dish_add;
 }
 

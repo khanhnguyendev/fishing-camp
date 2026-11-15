@@ -8,7 +8,7 @@ import { RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unl
 const v = (k: keyof typeof config): number => (config[k] as { value: number }).value;
 const carryTuning = {
   fish_cap: v('fish_cap'), dish_cap: v('dish_cap'), carry_fish_add: v('carry_fish_add'),
-  carry_dish_add: v('carry_dish_add'), worker_cap: v('worker_cap'),
+  carry_dish_add: v('carry_dish_add'), worker_cap: v('worker_cap'), carrier_cap: v('carrier_cap'),
 };
 
 describe('rng', () => {
@@ -69,9 +69,15 @@ describe('payChunk', () => {
 
 describe('carryCap', () => {
   it('Bigger back adds to the player, never to a worker', () => {
-    expect(carryCap('fish', true, 0, carryTuning)).toBe(v('fish_cap'));
-    expect(carryCap('bowl', true, 1, carryTuning)).toBe(v('dish_cap') + v('carry_dish_add'));
-    expect(carryCap('fish', false, 1, carryTuning)).toBe(v('worker_cap'));
+    expect(carryCap('fish', 'player', 0, carryTuning)).toBe(v('fish_cap'));
+    expect(carryCap('bowl', 'player', 1, carryTuning)).toBe(v('dish_cap') + v('carry_dish_add'));
+    expect(carryCap('fish', 'worker', 1, carryTuning)).toBe(v('worker_cap'));
+  });
+
+  it('a hired carrier takes a full load of dishes, more than a fisher brings', () => {
+    expect(carryCap('plate', 'carrier', 0, carryTuning)).toBe(v('carrier_cap'));
+    expect(carryCap('riceball', 'carrier', 1, carryTuning)).toBe(v('carrier_cap')); // Bigger back is the player's
+    expect(v('carrier_cap')).toBeGreaterThan(v('worker_cap'));
   });
 });
 

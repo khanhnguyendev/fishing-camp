@@ -79,6 +79,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Phone play: fills any screen portrait-first, touch-first title, adaptive HUD, add-to-home-screen fullscreen
 - [x] Zone 3, the rice field: paddy and pond, a rice cook making rice balls from rice + fish, cavalry customers, farmer and pond-fisher hires
 - [x] Quick hands upgrade: the player fishes 1.5x faster at rods and the pond (GDD 4's third stat)
+- [x] Carrier hires: yard carrier (sushi table -> counter) and field carrier (rice balls -> counter); never touch cash
 
 ## Your systems
 - hiring workers · in the slice
