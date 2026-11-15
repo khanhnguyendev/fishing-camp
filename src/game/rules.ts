@@ -95,6 +95,11 @@ export function vipReward(price: number, count: number, bonus: number): number {
   return Math.round(price * count * bonus);
 }
 
+/** What a dish pays with a counter's lanterns: the price x (1 + bonus x level), rounded. */
+export function decorPay(value: number, level: number, bonus: number): number {
+  return Math.round(value * (1 + bonus * level));
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

@@ -153,3 +153,7 @@ The board shows one quest at a time, in the file's order. Each entry:
 - `vip_count`: dishes a VIP orders at their counter (served before anyone else there)
 - `vip_time`: seconds they wait
 - `vip_bonus`: the chest pays this many times the order's value when it is filled in time (each dish also pays as usual)
+
+## Lanterns (decorations, asked for after play)
+- `price_decor1` .. `price_decor4`: the first level's price of the lanterns at the soup, sushi, rice-ball and hot-pot counters (levels grow by `upgrade_growth`, up to `upgrade_max`)
+- `decor_bonus`: each lantern level makes every customer at that counter pay this share more

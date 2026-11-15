@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, vipReward, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, vipReward, decorPay, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { QUESTS, questDone, questProgress } from './game/quests';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
@@ -746,7 +746,15 @@ function buildCounters() {
       const bub = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex(dish, 1).t, depthTest: false, fog: false })); bub.scale.set(1.25, 1.25, 1); bub.renderOrder = 5; world.add(bub);
       slots.push({ i: s, want: 0, phase: 'in', t: 0, d: 1.2, bub }); }
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) base.push({ p: new V3(fx0 - face * (rowGap * 1.2 + r * rowGap + rr(-0.15, 0.15)), 0, z0 + c * colGap + rr(-0.2, 0.2)), ph: rng() * 6 });
-    const counter = { dish, priceKey, face, pile, cash, drop, cashPos, inst, base, slots, cd: 0, rr: 0, active: zone === 1, zone, bubY: o.bubY };
+    const lanterns: Loose[] = [];
+    add(g, G.cyl6, '#5a3a22', cx + face * 0.45, 2.3, cz, PI / 2, 0, 0, 0.03, 4.4, 0.03); // the cord, in front of the banner
+    for (let k = 0; k < 5; k++) {
+      const l = new THREE.Group(); l.position.set(cx + face * 0.45, 1.98, cz - 1.8 + k * 0.9); l.visible = false; g.add(l);
+      add(l, G.cyl6, '#5a3a22', 0, 0.2, 0, 0, 0, 0, 0.02, 0.3, 0.02); add(l, G.sph, '#d8302a', 0, 0, 0, 0, 0, 0, 0.36, 0.42, 0.36);
+      add(l, G.cyl, '#e1b23a', 0, 0.2, 0, 0, 0, 0, 0.2, 0.05, 0.2); add(l, G.cyl, '#e1b23a', 0, -0.2, 0, 0, 0, 0, 0.2, 0.05, 0.2);
+      add(l, G.box, '#ffe27a', 0, -0.3, 0, 0, 0, 0, 0.03, 0.14, 0.03); lanterns.push(l);
+    }
+    const counter = { dish, priceKey, face, pile, cash, drop, cashPos, inst, base, slots, cd: 0, rr: 0, active: zone === 1, zone, bubY: o.bubY, lanterns };
     slots.forEach((s: Loose) => { s.want = Math.floor(rr(tune.want_min, tune.want_max + 0.999)); });
     counters.push(counter);
   };
@@ -1027,7 +1035,7 @@ function updateCounters(dt: number) {
           const head = c.base[s.i].p.clone(); head.y = 1.3; const slot = s;
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
-            const value = blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty);
+            const value = decorPay(blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty), lv('decor' + c.zone), tune.decor_bonus);
             state.earned += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
             const cash = newItem('cash'); cash.value = value;
             const from = head.clone(); from.x += face * 0.6;
@@ -1075,7 +1083,7 @@ function updateGeneral(dt: number) {
     if (top && g.cd <= 0 && g.eaten < tune.general_bowls) {
       g.cd = 1 / tune.eat_rate; c.pile.take(top); g.eaten++;
       const head = GENERAL_AT.clone(); head.y = 1.9;
-      fly(top, top.mesh.position, () => head, 0.3, 0.6, () => { release(top); puffs(head, 3, '#ffffff', 0.8); payOut(c, head, blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty), top.gold); });
+      fly(top, top.mesh.position, () => head, 0.3, 0.6, () => { release(top); puffs(head, 3, '#ffffff', 0.8); payOut(c, head, decorPay(blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty), lv('decor1'), tune.decor_bonus), top.gold); });
     }
     const outcome = visitOutcome(g.eaten, tune.general_bowls, g.t);
     if (outcome === 'won') { // a chest bursts open onto the cash pile
@@ -1103,6 +1111,13 @@ function updateGeneral(dt: number) {
     x2.clearRect(0, 0, 160, 128); x2.drawImage(bubbleTex('bowl', 1).c, 0, 0, 128, 128, 0, 0, 128, 128);
     x2.fillStyle = '#ffffff'; x2.fillRect(84, 30, 72, 44); x2.fillStyle = '#4a2e20'; x2.font = `bold 34px ${FONT}`; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText('x' + left, 118, 52);
     tx.t.needsUpdate = true;
+  }
+}
+/** Shows one lantern over each counter per level of its decoration, swaying a little. */
+function updateLanterns() {
+  for (const c of counters) {
+    const n = lv('decor' + c.zone);
+    c.lanterns.forEach((l: Loose, k: number) => { l.visible = k < n; l.rotation.x = Math.sin(state.t * 1.6 + k) * 0.08; });
   }
 }
 function updateCrowds() {
@@ -1468,7 +1483,7 @@ function tick3D(dt: number) { // the camp keeps running under every overlay
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
-  updateGeneral(dt); updateVip(dt); if (state.questFlash > 0) state.questFlash -= dt;
+  updateGeneral(dt); updateVip(dt); updateLanterns(); if (state.questFlash > 0) state.questFlash -= dt;
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);

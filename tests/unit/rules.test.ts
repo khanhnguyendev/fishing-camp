@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { vipReward, nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { decorPay, vipReward, nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -207,6 +207,15 @@ describe('vipReward', () => {
 
   it('a VIP order can be eaten in time at a counter', () => {
     expect(v('vip_count') / v('vip_time')).toBeLessThanOrEqual(v('eat_rate'));
+  });
+});
+
+describe('decorPay', () => {
+  it('each lantern level adds its bonus to what a customer pays', () => {
+    const b = v('decor_bonus');
+    expect(decorPay(100, 0, b)).toBe(100);
+    expect(decorPay(100, 1, b)).toBe(Math.round(100 * (1 + b)));
+    expect(decorPay(135, v('upgrade_max'), b)).toBe(Math.round(135 * (1 + b * v('upgrade_max'))));
   });
 });
 
