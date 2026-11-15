@@ -115,6 +115,8 @@
   "golden_mult": { "value": 5, "min": 1, "max": 20, "step": 1 },
   "want_min": { "value": 1, "min": 1, "max": 10, "step": 1 },
   "want_max": { "value": 3, "min": 1, "max": 10, "step": 1 },
+  "ledger_every": { "value": 5, "min": 1, "max": 60, "step": 1 },
+  "ledger_smoothing": { "value": 0.3, "min": 0.05, "max": 1, "step": 0.05 },
   "offline_cap": { "value": 7200, "min": 0, "max": 86400, "step": 600 },
   "offline_factor": { "value": 1, "min": 0, "max": 2, "step": 0.05 },
   "guide_time": { "value": 180, "min": 0, "max": 900, "step": 10 },

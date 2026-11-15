@@ -94,6 +94,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Tips: hand deliveries build a combo (up to x10) and each dish tips price x 5% x combo
 - [x] VIP orders: a crowned customer at a random open counter orders 12 dishes in 60 s for a chest worth 3x
 - [x] Lanterns: a decoration per counter, levels 1-5, each level +8% on what customers there pay
+- [x] Camp ledger: coins per second, dishes sold and self-running status for each zone (button under the gear, or L)
 
 ## Your systems
 - hiring workers · in the slice

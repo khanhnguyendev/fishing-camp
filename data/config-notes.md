@@ -157,3 +157,7 @@ The board shows one quest at a time, in the file's order. Each entry:
 ## Lanterns (decorations, asked for after play)
 - `price_decor1` .. `price_decor4`: the first level's price of the lanterns at the soup, sushi, rice-ball and hot-pot counters (levels grow by `upgrade_growth`, up to `upgrade_max`)
 - `decor_bonus`: each lantern level makes every customer at that counter pay this share more
+
+## The camp ledger (statistics, asked for after play)
+- `ledger_every`: seconds between updates of each zone's coins-per-second
+- `ledger_smoothing`: how much each update moves the shown rate toward the latest (1 = only the latest few seconds)

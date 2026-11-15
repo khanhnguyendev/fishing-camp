@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx, musicTick } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, vipReward, decorPay, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, zoneAutomated, playerSpeed, nextCombo, tipFor, vipReward, decorPay, smooth, upgradePrice, levelSpeed, offlineEarnings, inTile, walkableAt, inZone3, inZone4, burnFuel, wantsLog, blizzardPay } from './game/rules';
 import { QUESTS, questDone, questProgress } from './game/quests';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE, HEARTH } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
@@ -17,7 +17,7 @@ const STEP = 1 / 60;            // simulation step in seconds; motion is per sec
 const TITLE = 'Fishing Camp';
 const CONTROLS = matchMedia('(pointer: coarse)').matches
   ? ['Drag anywhere to move', 'Stand on a tile to act', 'Gear button: pause']
-  : ['WASD / Arrows: move', 'or drag anywhere: joystick', 'Stand on a tile to act', 'P: pause   M: mute'];
+  : ['WASD / Arrows: move', 'or drag anywhere: joystick', 'Stand on a tile to act', 'P: pause   M: mute   L: ledger'];
 const events: Loose[] = []; // window.game.events: anything the game wants a run to see
 
 // ---- Input: keys by position (event.code), OS key repeat ignored; a floating joystick ------
@@ -36,7 +36,7 @@ function hudXY(e: Loose) { const r = canvas.getBoundingClientRect(); return [(e.
 canvas.addEventListener('pointerdown', (e: Loose) => {
   startAudio(); if (e.pointerType === 'touch') touchUsed = true;
   const [x, y] = hudXY(e); tapped = { x, y };
-  if (scene === 'play' && !onGear(x, y)) {
+  if (scene === 'play' && !onGear(x, y) && !onLedger(x, y) && !(state && state.ledger)) {
     joy.active = true; joy.id = e.pointerId; joy.x0 = joy.x = x; joy.y0 = joy.y = y;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   }
@@ -45,6 +45,8 @@ canvas.addEventListener('pointermove', (e: Loose) => { if (joy.active && e.point
 const endJoy = (e: Loose) => { if (e.pointerId === joy.id) joy.active = false; };
 canvas.addEventListener('pointerup', endJoy); canvas.addEventListener('pointercancel', endJoy);
 const onGear = (x: Loose, y: Loose) => Math.hypot(x - GEAR.x, y - GEAR.y) < GEAR.r + 8;
+/** The ledger button sits under the gear. */
+const onLedger = (x: Loose, y: Loose) => Math.hypot(x - GEAR.x, y - (GEAR.y + 70)) < GEAR.r + 8;
 function buzz(ms: number) { try { if (touchUsed && navigator.vibrate) navigator.vibrate(ms); } catch (_) {} }
 
 // ---- 3D toolkit --------------------------------------------------------------------------
@@ -1036,7 +1038,7 @@ function updateCounters(dt: number) {
           fly(top, top.mesh.position, () => head, 0.3, 0.6, () => {
             release(top); puffs(head, 3, '#ffffff', 0.7);
             const value = decorPay(blizzardPay(dishValue(tune[c.priceKey], top.gold, tune.golden_mult), state.blizzardLeft > 0, state.fuel > 0, tune.blizzard_penalty), lv('decor' + c.zone), tune.decor_bonus);
-            state.earned += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
+            state.earned += value; state.zoneWin[c.zone - 1] += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
             const cash = newItem('cash'); cash.value = value;
             const from = head.clone(); from.x += face * 0.6;
             if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
@@ -1054,7 +1056,7 @@ function updateCounters(dt: number) {
 }
 /** Pays a dish's coins out at a counter's cash pile, from where it was eaten. */
 function payOut(c: Loose, from: Loose, value: number, gold: boolean) {
-  state.earned += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
+  state.earned += value; state.zoneWin[c.zone - 1] += value; state.sold[c.dish] = (state.sold[c.dish] || 0) + 1; if (zoneAutomated(c.zone, state.done)) state.autoWin += value;
   const cash = newItem('cash'); cash.value = value;
   if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
   else { c.cash.extra += value; fly(cash, from, () => c.cashPos.clone(), 0.5, 1.5, () => release(cash)); }
@@ -1446,7 +1448,7 @@ function reset() {
     goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '',
-    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {}, combo: 0, lastServe: -99, vip: null, vipNext: tune.vip_first }; // 1e9 s: no blizzard until the great hearth opens
+    gate4Open: false, gate4Anim: 0, goal4Done: false, fuel: 0, blizzardLeft: 0, blizzardNext: 1e9, levels: {}, quest: 0, questFlash: 0, sold: {}, combo: 0, lastServe: -99, vip: null, vipNext: tune.vip_first, ledger: false, zoneWin: [0, 0, 0, 0], zoneRate: [0, 0, 0, 0], zoneT: 0 }; // 1e9 s: no blizzard until the great hearth opens
   world = new THREE.Group(); scene3.add(world);
   scene3.background = new THREE.Color('#cdeaf3'); scene3.fog = new THREE.Fog('#cdeaf3', 38, 80);
   const hemi = new THREE.HemisphereLight('#fff3dc', '#7a6aa8', 1.9); scene3.add(hemi);
@@ -1483,7 +1485,13 @@ function tick3D(dt: number) { // the camp keeps running under every overlay
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
-  updateGeneral(dt); updateVip(dt); updateLanterns(); if (state.questFlash > 0) state.questFlash -= dt;
+  updateGeneral(dt); updateVip(dt); updateLanterns();
+  // the ledger's coins per second for each zone, smoothed
+  state.zoneT += dt;
+  if (state.zoneT >= tune.ledger_every) {
+    for (let z = 0; z < 4; z++) state.zoneRate[z] = smooth(state.zoneRate[z], state.zoneWin[z] / state.zoneT, tune.ledger_smoothing);
+    state.zoneWin = [0, 0, 0, 0]; state.zoneT = 0;
+  } if (state.questFlash > 0) state.questFlash -= dt;
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
@@ -1558,6 +1566,11 @@ function drawHud() {
     drawCoin(ctx, 72, qy + 38, 8); text('+' + fmt(q.reward), 86, qy + 39, 16, '#ffe27a', 'left');
     const bw = qw - 150; ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(140, qy + 34, bw, 8); ctx.fillStyle = '#6cc35a'; ctx.fillRect(140, qy + 34, bw * (p / q.target), 8);
   }
+  // ledger button, under the gear: a little bar chart
+  ctx.fillStyle = state.ledger ? 'rgba(120,90,10,0.85)' : 'rgba(48,28,18,0.72)'; ctx.beginPath(); ctx.arc(GEAR.x, GEAR.y + 70, GEAR.r + 6, 0, 2 * PI); ctx.fill();
+  ctx.fillStyle = '#ffffff'; [[-12, 8], [-3, 14], [6, 20]].forEach(([x, h]) => ctx.fillRect(GEAR.x + x, GEAR.y + 70 + 11 - h, 7, h));
+  ctx.fillRect(GEAR.x - 15, GEAR.y + 70 + 12, 30, 2);
+  if (state.ledger) drawLedger();
   // settings button, top-right
   ctx.save(); ctx.translate(GEAR.x, GEAR.y);
   ctx.fillStyle = 'rgba(48,28,18,0.72)'; ctx.beginPath(); ctx.arc(0, 0, GEAR.r + 6, 0, 2 * PI); ctx.fill();
@@ -1609,6 +1622,26 @@ function drawHud() {
     text(TOUCH ? 'Tap or move to collect' : 'Press any key or click to collect', W / 2, H / 2 + 88, 24, '#cfe9ff');
   }
 }
+const DISH_NAMES = ['soup bowls', 'sushi plates', 'rice balls', 'hot pots'];
+/** The camp ledger: each open zone's coins per second, dishes sold and whether it runs itself. */
+function drawLedger() {
+  const open = [true, state.gateOpen, state.gate3Open, state.gate4Open], zones = [0, 1, 2, 3].filter(z => open[z]);
+  const h = 130 + zones.length * 74, w = Math.min(600, W - 24), x0 = W / 2 - w / 2, y0 = H / 2 - h / 2;
+  panel(600, h);
+  text('Camp ledger', W / 2, y0 + 36, 32, '#ffe9a8');
+  const top = Math.max(1, ...zones.map(z => state.zoneRate[z]));
+  zones.forEach((z, i) => {
+    const y = y0 + 80 + i * 74, c = counters[z], dish = c.dish, rate = state.zoneRate[z];
+    text(ZONE_NAMES[z], x0 + 28, y + 12, 22, '#ffffff', 'left');
+    text(`${rate.toFixed(1)} coins/s`, x0 + w - 28, y + 12, 22, '#ffe27a', 'right');
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(x0 + 28, y + 30, w - 56, 10);
+    ctx.fillStyle = '#6cc35a'; ctx.fillRect(x0 + 28, y + 30, (w - 56) * Math.min(1, rate / top), 10);
+    const self = zoneAutomated(c.zone, state.done) ? 'runs itself' : 'needs you to carry';
+    text(`sold ${fmt(state.sold[dish] || 0)} ${DISH_NAMES[z]}   ·   ${self}`, x0 + 28, y + 56, 16, '#cfe9ff', 'left');
+  });
+  text(`Earned ${fmt(state.earned)}   ·   away: ${state.autoRate.toFixed(1)} coins/s`, W / 2, y0 + h - 40, 18, '#ffffff');
+  text('L or tap to close', W / 2, y0 + h - 16, 15, '#cfe9ff');
+}
 function panel(w: number, h: number) { w = Math.min(w, W - 24); ctx.fillStyle = 'rgba(48,28,18,0.86)'; rrect(ctx, W / 2 - w / 2, H / 2 - h / 2, w, h, 26); ctx.fill(); ctx.strokeStyle = '#ffe9c4'; ctx.lineWidth = 4; ctx.stroke(); }
 
 const scenes: Record<string, Loose> = {
@@ -1643,6 +1676,7 @@ const scenes: Record<string, Loose> = {
   },
   play: {
     update(dt: number) {
+      if (pressed('KeyL') || (tapped && (onLedger(tapped.x, tapped.y) || state.ledger))) { state.ledger = !state.ledger; tapped = null; joy.active = false; }
       if (pressed('KeyP') || pressed('Escape') || (tapped && onGear(tapped.x, tapped.y))) { scene = 'pause'; tapped = null; joy.active = false; return; }
       // the welcome-back popup never blocks: any key, click or drag collects it and play goes on
       const moveKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some((k: Loose) => down.has(k));

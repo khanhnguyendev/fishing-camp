@@ -100,6 +100,11 @@ export function decorPay(value: number, level: number, bonus: number): number {
   return Math.round(value * (1 + bonus * level));
 }
 
+/** A smoothed rate: moves the old value a share k of the way toward the new sample. */
+export function smooth(old: number, sample: number, k: number): number {
+  return old + (sample - old) * k;
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { decorPay, vipReward, nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { smooth, decorPay, vipReward, nextCombo, tipFor, playerSpeed, zoneAutomated, blizzardPay, burnFuel, carryCap, levelSpeed, upgradePrice, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, inZone4, wantsLog, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { HEARTH, RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -216,6 +216,15 @@ describe('decorPay', () => {
     expect(decorPay(100, 0, b)).toBe(100);
     expect(decorPay(100, 1, b)).toBe(Math.round(100 * (1 + b)));
     expect(decorPay(135, v('upgrade_max'), b)).toBe(Math.round(135 * (1 + b * v('upgrade_max'))));
+  });
+});
+
+describe('smooth', () => {
+  it('moves a shown rate part of the way toward the latest sample', () => {
+    const k = v('ledger_smoothing');
+    expect(smooth(0, 10, k)).toBeCloseTo(10 * k, 9);
+    expect(smooth(10, 10, k)).toBe(10);
+    expect(smooth(10, 0, 1)).toBe(0);
   });
 });
 

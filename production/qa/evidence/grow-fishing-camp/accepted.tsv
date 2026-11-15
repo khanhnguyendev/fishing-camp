@@ -1,5 +1,5 @@
 browser	/c/Program Files/Google/Chrome/Application/chrome.exe
-time	2026-11-15 16:18:53
+time	2026-11-15 16:19:59
 render	cheap
 webgl	ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
 ua	HeadlessChrome/157.0.0.0
@@ -8,126 +8,126 @@ state	0	title	{"t":0,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],
 scene	1	play
 state	1	play	{"t":0.02,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],"carry":0,"speedUp":false,"fishSpeed":false,"horse":false,"pot2":false,"gateOpen":false,"gateAnim":0,"goalDone":false,"goalTimer":-
 playinput	4	ArrowUp
-frame	3481	76932f57
-frame	3482	6a844600
-frame	3483	9639a4c0
-frame	3484	9092fb3d
-frame	3485	d4849585
-frame	3486	518fc9ff
-frame	3487	ce4020b9
-frame	3488	68ef6786
-frame	3489	f51bb631
-frame	3490	3f352b8
-frame	3491	c2004ca4
-frame	3492	a53bf72
-frame	3493	ba03e779
-frame	3494	b19381d2
-frame	3495	cff895d6
-frame	3496	31ddb6dd
-frame	3497	d324d05a
-frame	3498	de96aeb2
-frame	3499	fd3c8bb8
-frame	3500	ff3c7c58
-frame	3501	a1b0fc
-frame	3502	2966b634
-frame	3503	3c6889b9
-frame	3504	b3a4121d
-frame	3505	7127ccda
-frame	3506	6790e54f
-frame	3507	4c1a2b84
-frame	3508	89266b05
-frame	3509	79db50bc
-frame	3510	9f93913e
-frame	3511	534ce3f5
-frame	3512	be10adc0
-frame	3513	72650a72
-frame	3514	70d826d0
-frame	3515	69e1f6de
-frame	3516	f1fb0812
-frame	3517	67f45a89
-frame	3518	c7f6c1d7
-frame	3519	6a5c33e9
-frame	3520	658ca58d
-frame	3521	c6cbc51e
-frame	3522	56baf842
-frame	3523	92dcb7f9
-frame	3524	34422b49
-frame	3525	e5053a6a
-frame	3526	e82189d5
-frame	3527	7d9e3442
-frame	3528	b5888155
-frame	3529	94397b08
-frame	3530	9e157b2a
-frame	3531	ae40dcbf
-frame	3532	1b983d28
-frame	3533	d63a1d28
-frame	3534	5a5775c8
-frame	3535	3f00150a
-frame	3536	a30ecd1c
-frame	3537	4fe728ad
-frame	3538	4accf00f
-frame	3539	644bb306
-frame	3540	8feb5ee7
-frame	3541	432ec459
-frame	3542	2170af20
-frame	3543	33de2a2f
-frame	3544	d8853d4b
-frame	3545	702e98df
-frame	3546	27362e
-frame	3547	3d443227
-frame	3548	33e2a06e
-frame	3549	86729b20
-frame	3550	31590750
-frame	3551	c571ab22
-frame	3552	77438622
-frame	3553	44bc314e
-frame	3554	8921b34e
-frame	3555	d9df05ab
-frame	3556	bf1defdf
-frame	3557	a1800215
-frame	3558	9ed71a67
-frame	3559	9072b9ab
-frame	3560	465d7f69
-frame	3561	75e3cb66
-frame	3562	9bed5263
-frame	3563	63e7947e
-frame	3564	d7a79ce5
-frame	3565	aa489071
-frame	3566	f2aa216c
-frame	3567	7df747a1
-frame	3568	6d5cfbe9
-frame	3569	40a3ad18
-frame	3570	9b61069
-frame	3571	db693b7b
-frame	3572	a32d21fc
-frame	3573	9942346a
-frame	3574	85b04b0b
-frame	3575	659e081e
-frame	3576	297cb246
-frame	3577	812b2d32
-frame	3578	3c77f2c5
-frame	3579	7b638e0f
-frame	3580	8548d580
-frame	3581	c5880c62
-frame	3582	2b525086
-frame	3583	45e9c496
-frame	3584	3d980939
-frame	3585	55ca16d9
-frame	3586	41452222
-frame	3587	50f71eb9
-frame	3588	ecdd40d0
-frame	3589	b954c9d0
-frame	3590	8bb96f95
-frame	3591	3e5941f4
-frame	3592	80a8e5bb
-frame	3593	7f1e3d10
-frame	3594	b51e55a5
-frame	3595	d5eb9559
-frame	3596	429b8adc
-frame	3597	dec7b631
-frame	3598	d8b1d745
-frame	3599	dec52217
-frame	3600	3e9cf09b
+frame	3481	cc75edb7
+frame	3482	d03cb6a4
+frame	3483	1286364
+frame	3484	e0aeb0d5
+frame	3485	eba978cd
+frame	3486	93715d8f
+frame	3487	119ab3e1
+frame	3488	c2c91aa2
+frame	3489	7369d149
+frame	3490	b5d2970c
+frame	3491	5b481288
+frame	3492	91d6450e
+frame	3493	f0daa8a1
+frame	3494	f4d268ae
+frame	3495	e81e2b2
+frame	3496	f5d6a7b5
+frame	3497	55be0f86
+frame	3498	75f45e4e
+frame	3499	af1bd00c
+frame	3500	d76e3a6c
+frame	3501	9da03950
+frame	3502	407a82d8
+frame	3503	7fc31ce1
+frame	3504	d8dfdbf5
+frame	3505	3e35f806
+frame	3506	d35ee15f
+frame	3507	cafb1b28
+frame	3508	b168a64d
+frame	3509	3678be10
+frame	3510	5b7ee46a
+frame	3511	7c84f93d
+frame	3512	28ff6c64
+frame	3513	f9e7900e
+frame	3514	78cb6674
+frame	3515	ea4f074a
+frame	3516	c099b6ee
+frame	3517	78bdce31
+frame	3518	b4341c37
+frame	3519	1b631151
+frame	3520	987342a5
+frame	3521	6f6e6c8a
+frame	3522	78ba755e
+frame	3523	36101321
+frame	3524	e292f0f1
+frame	3525	4bb380d6
+frame	3526	59fb655d
+frame	3527	9f9db15e
+frame	3528	36d42edd
+frame	3529	397a279c
+frame	3530	aacd5096
+frame	3531	2c3ccc4f
+frame	3532	a88970fc
+frame	3533	632b50fc
+frame	3534	3aa265c
+frame	3535	51b378b6
+frame	3536	aeaa95b0
+frame	3537	e38c2685
+frame	3538	8e9fe71f
+frame	3539	9b2a8822
+frame	3540	849ed447
+frame	3541	c2dd50c1
+frame	3542	c91ed484
+frame	3543	e4c1dff
+frame	3544	6eaee45b
+frame	3545	b74cc2f
+frame	3546	6f79a41a
+frame	3547	eed28887
+frame	3548	108f855a
+frame	3549	2e20c084
+frame	3550	21ee9af4
+frame	3551	6e8b68fe
+frame	3552	205d43fe
+frame	3553	8f60047a
+frame	3554	d3c5867a
+frame	3555	ae41017b
+frame	3556	5a64232f
+frame	3557	e979789d
+frame	3558	58cc03c7
+frame	3559	64d4b57b
+frame	3560	d358d1
+frame	3561	7d6f2942
+frame	3562	9cded8c3
+frame	3563	9b487eaa
+frame	3564	a41b8ded
+frame	3565	b70c7d89
+frame	3566	f426b740
+frame	3567	bde6c6f9
+frame	3568	1e63d951
+frame	3569	262afc2c
+frame	3570	c42be9d1
+frame	3571	b48d8b
+frame	3572	402baa50
+frame	3573	fff07ad6
+frame	3574	cf29041b
+frame	3575	e40af8a
+frame	3576	b2b02562
+frame	3577	ed22d8ce
+frame	3578	42e1ca0d
+frame	3579	bf36851f
+frame	3580	c868224
+frame	3581	b91b393e
+frame	3582	852c03a2
+frame	3583	d6cea872
+frame	3584	dc322a61
+frame	3585	ff7f7141
+frame	3586	ea5edffe
+frame	3587	9451b1e1
+frame	3588	f4d08074
+frame	3589	c1480974
+frame	3590	b424a1d
+frame	3591	7115b098
+frame	3592	92ff12cb
+frame	3593	68edecb4
+frame	3594	302141ad
+frame	3595	559a21c1
+frame	3596	910ef970
+frame	3597	5d15d149
+frame	3598	b159548d
+frame	3599	dcad9577
+frame	3600	5cf525eb
 state	3600	play	{"t":60,"score":0,"gained":"","wallet":0,"walletShown":0,"done":[],"carry":0,"speedUp":false,"fishSpeed":false,"horse":false,"pot2":false,"gateOpen":false,"gateAnim":0,"goalDone":false,"goalTimer":-1,
 digits	log	bold 30px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
 digits	log	bold 52px "Trebuchet MS", "Segoe UI", Verdana, sans-serif	tabular	0
@@ -138,17 +138,17 @@ loop	log	none	no loop() step was marked
 first	log	none	no state.beat
 pressure	none	the game set no number state.margin in play
 steptime	3600	0.083	2.800
-frametime	60	22.4	53.9	60	60	1
-done	3600	play	stop	60.0	5963
-console	0	[.WebGL-0x733400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x733400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x733400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
-console	0	[.WebGL-0x733400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+frametime	60	23.6	61.6	60	60	1
+done	3600	play	stop	60.0	5984
+console	0	[.WebGL-0x285400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x285400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x285400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+console	0	[.WebGL-0x285400421400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
 measured	1280x720
 text	play	canvas	80,32,99,56	46.5	16.14	inside	0
 text	play	canvas	64,94,308,111	25.5	16.14	inside	Serve 10 bowls of soup  0/10
 text	play	canvas	86,117,115,128	21.0	12.61	inside	+50
-screen	3600	play	fcb06a0c	drawn
+screen	3600	play	a2711dc8	drawn
 saved	3600	localstorage	fishing-camp-save-v1
 uncaught	0
-shot	/c/Users/khanh/ws/0.GAME/fishing-camp/production/qa/evidence/grow-fishing-camp/story.png	515783
+shot	/c/Users/khanh/ws/0.GAME/fishing-camp/production/qa/evidence/grow-fishing-camp/story.png	517049
