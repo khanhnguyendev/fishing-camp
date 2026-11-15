@@ -40,6 +40,12 @@ export function catchTime(base: number, isPlayer: boolean, quickHands: boolean, 
   return isPlayer && quickHands ? base / mult : base;
 }
 
+/** Where a general's visit stands: filled in time, run out of time, or still eating. */
+export function visitOutcome(eaten: number, need: number, timeLeft: number): 'won' | 'lost' | 'eating' {
+  if (eaten >= need) return 'won';
+  return timeLeft <= 0 ? 'lost' : 'eating';
+}
+
 /**
  * Offline income on return: the measured automated rate over the time away (in seconds, capped),
  * scaled by the offline factor and rounded down.

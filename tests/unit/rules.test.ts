@@ -1,7 +1,7 @@
 // Vitest: Fishing Camp's rules in src/game/, run in Node with no browser.
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
-import { carryCap, catchTime, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
+import { carryCap, catchTime, visitOutcome, dishValue, fmt, inTile, inZone3, offlineEarnings, payChunk, walkableAt } from '../../src/game/rules';
 import { rng, setSeed } from '../../src/game/random';
 import { RICE, ROD_TILE_Z, ROD_X, STAND_SIZE, UNLOCKS } from '../../src/game/unlocks';
 
@@ -87,6 +87,17 @@ describe('catchTime', () => {
     expect(catchTime(base, true, false, mult)).toBe(base);
     expect(catchTime(base, true, true, mult)).toBeCloseTo(base / mult, 9);
     expect(catchTime(base, false, true, mult)).toBe(base); // a hired fisher keeps his own pace
+  });
+});
+
+describe('visitOutcome', () => {
+  it('the general pays his chest only when his whole order is eaten in time', () => {
+    const need = v('general_bowls'), time = v('general_time');
+    expect(visitOutcome(need, need, 5)).toBe('won');
+    expect(visitOutcome(need - 1, need, 5)).toBe('eating');
+    expect(visitOutcome(need - 1, need, 0)).toBe('lost');
+    expect(visitOutcome(need, need, 0)).toBe('won'); // the last bowl in the last moment still counts
+    expect(need / time).toBeLessThanOrEqual(v('eat_rate')); // the order can be eaten in time at the counter's pace
   });
 });
 

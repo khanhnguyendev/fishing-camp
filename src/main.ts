@@ -8,7 +8,7 @@ import { params, manual, clock, seedFrom, install } from './hook';
 import { canvas, ctx, renderer, TOUCH, JOY_R, SAFE_TOP, GEAR, W, H, FONT, CHEAP, clearHud, text, rrect } from './screen';
 import { startAudio, setMuted, muted, sfx } from './audio';
 import { setSeed, rng, rr } from './game/random';
-import { fmt, dishValue, payChunk, carryCap, catchTime, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
+import { fmt, dishValue, payChunk, carryCap, catchTime, visitOutcome, offlineEarnings, inTile, walkableAt, inZone3 } from './game/rules';
 import { UNLOCKS, ROD_X, ROD_TILE_Z, RICE } from './game/unlocks';
 import type { Loose, SaveData } from './game/types';
 
@@ -105,6 +105,7 @@ const ROLES = {
   ricecook:  { tunic: '#f6f0dc', pants: '#5b6b4a', hair: '#2b1d16', belt: '#c8402e' },
   farmer:    { tunic: '#3f5aa8', pants: '#5a4636', hair: '#2b1d16', belt: '#c99a52' },
   carrier:   { tunic: '#c9773a', pants: '#4a3b2c', hair: '#2b1d16', belt: '#f2c94c' },
+  general:   { tunic: '#8e1f1f', pants: '#2b2b35', hair: '#20150f', belt: '#e1b23a' },
 };
 const TORSO = new THREE.CylinderGeometry(0.25, 0.33, 0.52, 8);
 const HEAD = new THREE.SphereGeometry(0.4, 10, 8);
@@ -146,6 +147,12 @@ function makeChar(role: string) {
     add(head, G.cyl, '#f6f0dc', 0, 0.36, -0.02, -0.12, 0, 0, 1.05, 0.09, 1.05); add(head, G.sph, '#c8402e', 0, 0.44, -0.02, 0, 0, 0, 0.18);
     add(body, G.box, '#c8402e', 0, 0.55, 0.27, -0.12, 0, 0, 0.44, 0.44, 0.04);
     add(armR, G.box, '#d9b77a', 0, -0.62, 0, 0, 0, 0, 0.05, 0.5, 0.05); add(armR, G.box, '#d9b77a', 0, -0.92, 0, 0, 0, 0, 0.16, 0.2, 0.04);
+  } else if (role === 'general') { // a red cape, gold-trimmed armour and a helmet with tall horns
+    add(body, G.box, '#c8302a', 0, 0.72, -0.3, 0.15, 0, 0, 0.7, 0.85, 0.05);
+    add(body, G.box, '#e1b23a', -0.34, 0.9, 0, 0, 0, 0.35, 0.26, 0.12, 0.34); add(body, G.box, '#e1b23a', 0.34, 0.9, 0, 0, 0, -0.35, 0.26, 0.12, 0.34);
+    add(head, G.hemi, '#2b2b35', 0, 0.06, -0.03, -0.3, 0, 0, 0.9, 0.82, 0.9);
+    add(head, new THREE.TorusGeometry(0.42, 0.05, 4, 14, PI), '#e1b23a', 0, 0.46, 0.08, -0.15, 0, 0);
+    add(head, G.cone4, '#e1b23a', 0, 0.6, 0.15, 0, 0, 0, 0.18, 0.32, 0.08);
   } else if (role === 'carrier') { // a shoulder yoke with a basket at each end, and a tied headband
     add(body, G.box, '#8a5a2b', 0, 1.02, -0.05, 0, 0, 0, 1.7, 0.07, 0.07);
     for (const x of [-0.82, 0.82]) { add(body, G.box, '#d9c08a', x, 0.78, -0.05, 0, 0, 0, 0.02, 0.45, 0.02); add(body, new THREE.CylinderGeometry(0.2, 0.15, 0.24, 8), '#c99a52', x, 0.5, -0.05); }
@@ -830,6 +837,7 @@ function updateCounters(dt: number) {
       if (s.bub.visible && s.shownWant !== s.want) { s.bub.material.map = bubbleTex(c.dish, s.want).t; s.shownWant = s.want; }
     }
     if (!c.active) continue;
+    if (c.zone === 1 && state.general && state.general.phase === 'eat') continue; // the general eats first
     c.cd -= dt;
     if (c.cd <= 0) {
       const top = c.pile.top();
@@ -855,6 +863,67 @@ function updateCounters(dt: number) {
         }
       }
     }
+  }
+}
+/** Pays a dish's coins out at a counter's cash pile, from where it was eaten. */
+function payOut(c: Loose, from: Loose, value: number, gold: boolean) {
+  state.earned += value; if (c.zone === 1 && belt.on) state.autoWin += value;
+  const cash = newItem('cash'); cash.value = value;
+  if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.5, 1.5); }
+  else { c.cash.extra += value; fly(cash, from, () => c.cashPos.clone(), 0.5, 1.5, () => release(cash)); }
+  floats.push({ p: from.clone().add(new V3(0, 0.8, 0)), txt: '+' + value, t: 0, col: gold ? '#ffe27a' : '#ffffff' });
+}
+const GENERAL_AT = new V3(-7.0, 0, 5.9);
+/** The general's visit: he walks up beside the soup counter, eats first, and pays a chest if his order is filled in time. */
+function updateGeneral(dt: number) {
+  const c = counters[0], gch = fx.general;
+  if (!state.general) {
+    gch.group.visible = false; fx.generalBub.visible = false;
+    if (state.done.includes('fisher3') && state.playTime >= state.generalNext && scene === 'play' && !state.welcome) {
+      state.general = { phase: 'in', d: 3, t: tune.general_time, eaten: 0, cd: 0 };
+      sfx.horn(); buzz(60); events.push({ type: 'general' });
+      floats.push({ p: GENERAL_AT.clone().add(new V3(0, 3.2, 0)), txt: "The general arrives!", t: -0.6, col: '#ffe27a' });
+    }
+    return;
+  }
+  const g = state.general;
+  gch.group.visible = true;
+  if (g.phase === 'in') { g.d = Math.max(0, g.d - dt * 3); if (g.d <= 0) g.phase = 'eat'; }
+  else if (g.phase === 'out') { g.d += dt * 3; if (g.d >= 3) { state.general = null; state.generalNext = state.playTime + rr(tune.general_min, tune.general_max); return; } }
+  else {
+    g.t -= dt; g.cd -= dt;
+    const top = c.pile.top();
+    if (top && g.cd <= 0 && g.eaten < tune.general_bowls) {
+      g.cd = 1 / tune.eat_rate; c.pile.take(top); g.eaten++;
+      const head = GENERAL_AT.clone(); head.y = 1.9;
+      fly(top, top.mesh.position, () => head, 0.3, 0.6, () => { release(top); puffs(head, 3, '#ffffff', 0.8); payOut(c, head, dishValue(tune[c.priceKey], top.gold, tune.golden_mult), top.gold); });
+    }
+    const outcome = visitOutcome(g.eaten, tune.general_bowls, g.t);
+    if (outcome === 'won') { // a chest bursts open onto the cash pile
+      g.phase = 'out'; sfx.bell(); sfx.cheer(); buzz(120); events.push({ type: 'general_won' });
+      const from = GENERAL_AT.clone().add(new V3(1.2, 1.6, 0)), n = 10, each = tune.general_reward / n;
+      for (let i = 0; i < n; i++) {
+        const cash = newItem('cash'); cash.value = each;
+        if (c.cash.items.length < c.cash.limit()) { c.cash.items.push(cash); fly(cash, from, () => c.cash.slot(c.cash.items.indexOf(cash)), 0.6, 2.2, undefined, i * 0.05); }
+        else { c.cash.extra += each; fly(cash, from, () => c.cashPos.clone(), 0.6, 2.2, () => release(cash), i * 0.05); }
+      }
+      state.earned += tune.general_reward; puffs(from, 10, '#ffe27a', 1.4);
+      floats.push({ p: from.clone().add(new V3(0, 1, 0)), txt: `CHEST +${tune.general_reward}`, t: -0.3, col: '#ffe27a' });
+    } else if (outcome === 'lost') {
+      g.phase = 'out'; events.push({ type: 'general_lost' });
+      floats.push({ p: GENERAL_AT.clone().add(new V3(0, 3, 0)), txt: 'The general leaves...', t: -0.6, col: '#ffc9b0' });
+    }
+  }
+  // look: he steps up from behind the crowd; a bubble counts his bowls
+  gch.group.position.set(GENERAL_AT.x - g.d, 0, GENERAL_AT.z); gch.group.rotation.y = PI / 2;
+  animChar(gch, g.phase === 'eat' ? 0 : 3, dt, g.phase === 'eat' ? 'chop' : null);
+  fx.generalBub.visible = g.phase === 'eat'; fx.generalBub.position.set(GENERAL_AT.x - g.d, 3.4 + Math.sin(state.t * 3) * 0.06, GENERAL_AT.z);
+  const left = Math.max(0, tune.general_bowls - g.eaten);
+  if (fx.generalBub.visible && fx.generalShown !== left) {
+    fx.generalShown = left; const tx = fx.generalTex, x2 = tx.g;
+    x2.clearRect(0, 0, 160, 128); x2.drawImage(bubbleTex('bowl', 1).c, 0, 0, 128, 128, 0, 0, 128, 128);
+    x2.fillStyle = '#ffffff'; x2.fillRect(84, 30, 72, 44); x2.fillStyle = '#4a2e20'; x2.font = `bold 34px ${FONT}`; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText('x' + left, 118, 52);
+    tx.t.needsUpdate = true;
   }
 }
 function updateCrowds() {
@@ -1068,6 +1137,7 @@ function load() {
   if (!s) return;
   state.wallet = s.wallet | 0; state.playTime = s.playTime || 0; state.goalDone = !!s.goalDone; state.earned = s.earned || 0; state.autoRate = s.rate || 0;
   state.goldNext = s.goldNext || state.goldNext; state.goal3Done = !!s.goal3Done;
+  state.generalNext = Math.max(tune.general_first, state.playTime + tune.general_min);
   for (const id of UNLOCKS.map((u: Loose) => u.id)) if ((s.done || []).includes(id)) unlock(tiles.find((t: Loose) => t.def.id === id), true);
   for (const t of tiles) if (s.paid && s.paid[t.def.id]) t.paid = s.paid[t.def.id];
   const { away, earned } = offlineEarnings(state.autoRate, (Date.now() - (s.at || Date.now())) / 1000, tune.offline_cap, tune.offline_factor);
@@ -1082,7 +1152,7 @@ function reset() {
   while (scene3.children.length) scene3.remove(scene3.children[0]);
   tweens = []; pops = []; floats = []; for (const k in pools) pools[k].length = 0;
   state = { t: 0, score: 0, gained: '', wallet: 0, walletShown: 0, done: [], carry: 0, speedUp: false, fishSpeed: false, pot2: false, gateOpen: false, gateAnim: 0,
-    goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
+    goalDone: false, goalTimer: -1, glide: null, playTime: 0, goldLeft: 0, goldNext: tune.golden_first, generalNext: tune.general_first, general: null, earned: 0, autoRate: 0, autoWin: 0, autoT: 0,
     streak: 0, streakT: 0, coinStreak: 0, coinT: 0, payStreak: 0, payT: 0, welcome: null,
     gate3Open: false, gate3Anim: 0, goal3Done: false, resultLine: '' };
   world = new THREE.Group(); scene3.add(world);
@@ -1091,6 +1161,9 @@ function reset() {
   const sun = new THREE.DirectionalLight('#ffe2b4', 2.2); sun.position.set(-8, 20, 10); scene3.add(sun);
   fx = { pool: [], dummy: new THREE.Object3D(), focus: new V3(-2, 0, -4.5), gfT: 0 };
   buildEnvironment(); buildRods(); buildKitchen(); buildRiceField(); buildCounters(); buildBelt(); buildTiles(); buildWorkersAndPlayer();
+  fx.general = makeChar('general'); fx.general.group.scale.setScalar(1.35); fx.general.group.visible = false; world.add(fx.general.group); blob(fx.general.group, 0.6);
+  fx.generalTex = canvasTex(160, 128, () => {}); fx.generalShown = -1;
+  fx.generalBub = new THREE.Sprite(new THREE.SpriteMaterial({ map: fx.generalTex.t, depthTest: false, fog: false })); fx.generalBub.scale.set(1.9, 1.5, 1); fx.generalBub.renderOrder = 5; fx.generalBub.visible = false; world.add(fx.generalBub);
   fx.obstacles = () => {
     const o = [[0, -2, 1.1], [-1.45, -2, 0.5], [2.3, -2, 0.85], [3.3, 0, 0.8]];
     if (state.pot2) o.push([4.3, -2, 0.85], [5.45, -2, 0.5]);
@@ -1113,6 +1186,7 @@ function tick3D(dt: number) { // the camp keeps running under every overlay
   updateCarrier(player, dt); for (const w of workers) updateCarrier(w, dt);
   updateProcessors(dt); updateBelt(dt); updateCounters(dt); updateCrowds();
   if (state.pot2) animChar(fx.potboy, 0, dt, 'stir');
+  updateGeneral(dt);
   updateTiles(dt); updateTweens(dt); updatePops(dt); updateParticles(dt); updateGolden(dt); updateGuide(dt); updateCamera(dt);
   // gate swings open
   if (state.gateOpen && state.gateAnim < 1) state.gateAnim = Math.min(1, state.gateAnim + dt * 1.5);
@@ -1150,7 +1224,8 @@ function buildFigures() {
   const chars = [['player', 'You'], ['fisher', 'Fisher'], ['chef', 'Soup chef'], ['potboy', 'Pot-boy'], ['grillchef', 'Grill chef'], ['ricecook', 'Rice cook'], ['farmer', 'Farmer'], ['carrier', 'Carrier']];
   chars.forEach(([r, name], i) => { const c = makeChar(r); c.group.position.set(-9.6 + i * 1.55, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.5); list.push([name, c.group.position.clone().add(new V3(0, 3.0, -0.6))]); });
   ([['Soldier', 0], ['Gold soldier', 1]] as [string, number][]).forEach(([name, gold], i) => { const m = new THREE.Mesh(SOLDIER_GEO[gold], VMAT); m.position.set(2.8 + i * 1.9, 0, 0); m.rotation.y = 0.35; g.add(m); blob(m, 0.5); list.push([name, m.position.clone().add(new V3(0, 3.3, -0.6))]); });
-  { const m = new THREE.Mesh(CAVALRY_GEO, VMAT); m.position.set(7.4, 0, 0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Cavalry', m.position.clone().add(new V3(0, 4.0, -0.6))]); }
+  { const c = makeChar('general'); c.group.scale.setScalar(1.35); c.group.position.set(6.5, 0, 0); c.group.rotation.y = 0.35; g.add(c.group); blob(c.group, 0.6); list.push(['General', c.group.position.clone().add(new V3(0, 3.6, -0.6))]); }
+  { const m = new THREE.Mesh(CAVALRY_GEO, VMAT); m.position.set(8.6, 0, 0); m.rotation.y = 0.9; g.add(m); blob(m, 0.9); list.push(['Cavalry', m.position.clone().add(new V3(0, 4.0, -0.6))]); }
   [['Tuna', 'fish', 0], ['Gold tuna', 'fish', 1], ['Soup bowl', 'bowl', 0], ['Sushi plate', 'plate', 0], ['Rice sack', 'rice', 0], ['Rice balls', 'riceball', 0], ['Cash bundle', 'cash', 0]].forEach(([name, t, gold], i) => {
     const m = new THREE.Mesh(ITEM_GEO[t][gold], VMAT); m.position.set(-7.2 + i * 2.3, 0.02, 2.2); m.scale.setScalar(1.6); m.rotation.y = 0.5; g.add(m); list.push([name, m.position.clone()]); });
   const cam = new THREE.PerspectiveCamera(34, W / H, 0.5, 100); cam.position.set(0, 8, 20.5); cam.lookAt(0, 1.2, 0.8);
@@ -1175,6 +1250,13 @@ function drawHud() {
     const w = Math.min(460, W - 32), gy = H > W ? 96 + SAFE_TOP() : 18; ctx.fillStyle = 'rgba(120,70,0,0.8)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
     ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
     text(`GOLDEN SCHOOL   x${tune.golden_mult}   ${Math.ceil(state.goldLeft)}s`, W / 2, gy + 28, 28, '#ffe27a');
+  }
+  // general's visit banner
+  if (state.general && state.general.phase === 'eat') {
+    const g = state.general, w = Math.min(520, W - 32), base = H > W ? 96 + SAFE_TOP() : 18, gy = base + (state.goldLeft > 0 ? 64 : 0);
+    ctx.fillStyle = 'rgba(110,20,20,0.85)'; rrect(ctx, W / 2 - w / 2, gy, w, 54, 27); ctx.fill();
+    ctx.strokeStyle = '#ffe27a'; ctx.lineWidth = 3; ctx.stroke();
+    text(`GENERAL'S VISIT   ${g.eaten}/${tune.general_bowls}   ${Math.ceil(g.t)}s`, W / 2, gy + 28, 28, '#ffe9c4');
   }
   // floating joystick
   if (joy.active) {

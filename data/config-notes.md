@@ -82,3 +82,10 @@ holds no comments. The values themselves are in `data/config.json`.
 - `carrier_cap`: dishes a carrier takes per trip, table to counter (carriers never touch cash)
 - `price_carrier2`: coins to hire the grill yard's carrier (sushi table -> gold soldiers' counter)
 - `price_carrier3`: coins to hire the rice field's carrier (rice-ball table -> cavalry counter)
+
+## General's visit (GDD 6: "a big customer orders 30 bowls within 60 seconds and rewards a chest of cash")
+- `general_first`: seconds of play before the first visit (needs all three river fishers hired)
+- `general_min`, `general_max`: shortest and longest gap between visits (s)
+- `general_bowls`: bowls the general orders
+- `general_time`: seconds he waits for them
+- `general_reward`: coins in the chest when the order is filled in time (each bowl also pays as usual)

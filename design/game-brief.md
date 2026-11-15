@@ -80,6 +80,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - [x] Zone 3, the rice field: paddy and pond, a rice cook making rice balls from rice + fish, cavalry customers, farmer and pond-fisher hires
 - [x] Quick hands upgrade: the player fishes 1.5x faster at rods and the pond (GDD 4's third stat)
 - [x] Carrier hires: yard carrier (sushi table -> counter) and field carrier (rice balls -> counter); never touch cash
+- [x] General's visit: 30 bowls in 60 s at the soup counter earns a chest of cash (GDD 6)
 
 ## Your systems
 - hiring workers · in the slice
@@ -87,7 +88,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 - zone gates · in the slice
 - offline income and save · in the slice
 - golden school · in the slice
-- general's visit · later
+- general's visit · in the slice
 - blizzard · later
 - zone 3 (rice field) · in the slice
 - zone 4 (great hearth) · later
@@ -102,7 +103,7 @@ No losing; the pressure is the moving bottleneck. At first you are the bottlenec
 
 ## Out of scope
 - Zone 4 (great hearth): grow it
-- General's visit and blizzard events: change it after play
+- Blizzard event: change it after play
 - Prestige / new maps carrying outfits and multipliers: grow it
 - Rewarded ads, interstitials and purchases: not built yet
 - Music loop per zone: change it after play
