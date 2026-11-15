@@ -9,8 +9,9 @@ An arcade idle game in the browser. You only move; every action happens when you
 
 ![The camp: soldiers queue at the counter, the chef cuts fish, fishers work the rods by the river](prototypes/fishing-camp/evidence/iteration-2-play.png)
 
-> **Status:** early development: a playable slice (zones 1 and 2), grown from a prototype into a
-> TypeScript web project. Numbers come from the design document and are still being tuned.
+> **Status:** early development: all four zones of the first map are playable, grown from a
+> prototype into a TypeScript web project. Numbers come from the design document and are still
+> being tuned.
 
 ## How to play
 
@@ -18,16 +19,22 @@ An arcade idle game in the browser. You only move; every action happens when you
 |---|---|
 | WASD or arrow keys | Move |
 | Drag anywhere (mouse or touch) | Floating joystick |
-| Stand on a tile | Fish, drop off, pick up, collect cash or pay for an unlock |
+| Stand on a tile | Fish, chop, harvest, drop off, pick up, collect cash, or (standing still) pay for an unlock |
 | P or the gear button | Pause (R in the pause screen erases the save) |
-| M | Mute |
+| M | Mute music and sound |
 
 **The loop:** catch a tuna at a bamboo rod → carry it to the chef's board → the pot makes 4 bowls
 of soup → carry the bowls to the counter → soldiers eat and pay → collect the cash → stand on a
-price tile to pay for the next unlock.
+price tile to pay for the next unlock. Every hire takes over a job you were doing by hand.
 
-**The goal of this slice:** buy your way through zone 1, open the gate to the grill yard and sell
-your first sushi plate. Play continues after that.
+### The camp
+
+| Zone | Ingredient | Dish (coins) | Customers | Its twist |
+|---|---|---|---|---|
+| 1. Fishing dock | Tuna from the river | Fish soup (5) | Black-armoured soldiers | Hiring, the conveyor, a second pot |
+| 2. Grill yard | Tuna | Sushi (15) | Gold-armoured soldiers | Fish split between two dishes |
+| 3. Rice field | Rice from the paddy, fish from the pond | Rice balls (45) | Cavalry | A dish of two ingredients |
+| 4. Great hearth | Firewood, fish through the ice | Hot pot (135) | Generals | The fire must be fed, or it stops cooking |
 
 ### Unlocks
 
@@ -35,15 +42,27 @@ your first sushi plate. Play continues after that.
 |---|---:|---|
 | Fisher 1, 2, 3 | 100 each | A fisher works that rod and carries fish to the chef |
 | Bigger back | 150 | Carry more fish and dishes |
+| Quick hands | 180 | You fish 1.5× faster (rods, pond, ice hole) |
 | Conveyor | 200 | Bowls ride from the kitchen to the counter on their own |
 | Swift feet | 250 | Run faster |
-| Gate to the grill yard | 500 | Opens zone 2: a grill, sushi and gold-armored soldiers who pay 3× |
+| Grill yard gate | 500 | Opens zone 2 |
 | Second pot | 500 | Two fish cook at once; a pot-boy stirs the new pot |
-| Yard fisher | 600 | A fisher for the grill yard's rod |
+| Yard fisher · yard carrier | 600 · 700 | A fisher for the yard's rod; a carrier from the sushi table to the counter |
+| Rice field gate | 2,000 | Opens zone 3 |
+| Farmer · pond fisher · field carrier | 1,200 · 1,200 · 1,500 | Rice and fish to the rice cook; rice balls to the cavalry |
+| Great hearth gate | 8,000 | Opens zone 4 |
+| Woodcutter · ice fisher | 5,000 each | Firewood to the fire; fish to the hearth |
 
-Every 3–5 minutes a **golden school** arrives: for 20 seconds every fish is gold and its dishes
-sell for 5×. Progress saves after every unlock, and the camp earns while you are away
-(up to 2 hours, once the conveyor runs).
+### Events
+
+- **Golden school** (every 3–5 min): for 20 s every fish is gold and its dishes sell for 5×.
+- **General's visit** (every 4–6 min, once three fishers are hired): a general orders 30 bowls of
+  soup; serve them within 60 s for a chest of 600 coins.
+- **Blizzard** (every 3–5 min, once the great hearth is open): the river and pond freeze for 30 s,
+  so only the ice hole gives fish, and if the hearth's fire is out, every customer pays half.
+
+Each zone has its own music, synthesized in the browser. Progress saves after every unlock, and
+the camp earns while you are away (up to 2 hours, once the conveyor runs).
 
 ## Run it locally
 
@@ -94,9 +113,8 @@ the deploy.
 
 ## What's next
 
-Out of scope for this slice, planned for later: zones 3–4 (rice field, great hearth), the
-general's visit and blizzard events, music, new maps with permanent progress, and long-session
-balance. Ads and in-app purchases are not in this build.
+Planned for later: new maps (mountain, coast, fortress) with permanent progress carried over, and
+a balance pass over a full 2–3 hour session. Ads and in-app purchases are not in this build.
 
 ## Credits
 
